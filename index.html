@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>3D Crystal Shatter - Universal Edition</title>
+    <title>3D Crystal Shatter - Cosmic Edition</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -48,9 +48,9 @@
 
         .btn-neon {
             background: transparent;
-            color: #00f2ff;
+            color: #a855f7;
             padding: 15px 30px;
-            border: 2px solid #00f2ff;
+            border: 2px solid #a855f7;
             border-radius: 5px;
             cursor: pointer;
             font-weight: 900;
@@ -61,15 +61,15 @@
         }
 
         .btn-neon:hover {
-            background: #00f2ff;
+            background: #a855f7;
             color: #000;
-            box-shadow: 0 0 30px rgba(0, 242, 255, 0.6);
+            box-shadow: 0 0 30px rgba(168, 85, 247, 0.6);
         }
 
         #goal-text { 
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0);
             font-size: 3rem; font-weight: 900; color: #fff; 
-            text-shadow: 0 0 20px #00f2ff, 0 0 40px #ff00ea;
+            text-shadow: 0 0 20px #a855f7, 0 0 40px #ff00ea;
             transition: transform 0.4s cubic-bezier(0.19, 1, 0.22, 1);
             pointer-events: none; z-index: 20;
             text-align: center; width: 100%;
@@ -88,7 +88,7 @@
         }
 
         .life-dot { width: 10px; height: 10px; border-radius: 50%; transition: all 0.5s; }
-        .life-active { background: #ff0044; box-shadow: 0 0 10px #ff0044; }
+        .life-active { background: #a855f7; box-shadow: 0 0 10px #a855f7; }
         .life-empty { background: rgba(255,255,255,0.1); }
 
         @media (min-width: 768px) {
@@ -131,12 +131,12 @@
     <div id="start-screen" class="absolute inset-0 flex flex-col items-center justify-center pointer-events-auto bg-black/60 backdrop-blur-sm px-6">
         <div class="text-center space-y-6">
             <h1 class="text-5xl md:text-8xl font-black tracking-tighter italic">
-                <span class="text-white">CRYSTAL</span><br>
-                <span class="text-[#00f2ff]" style="text-shadow: 0 0 30px #00f2ff">SHATTER</span>
+                <span class="text-white">COSMIC</span><br>
+                <span class="text-[#a855f7]" style="text-shadow: 0 0 30px #a855f7">GLOW</span>
             </h1>
-            <p class="text-cyan-100/60 tracking-[5px] md:tracking-[10px] uppercase text-[10px] md:text-sm">Controllo Mouse + Accelerometro</p>
+            <p class="text-purple-100/60 tracking-[5px] md:tracking-[10px] uppercase text-[10px] md:text-sm">Sincronizzazione Spaziale Reattiva</p>
             <div class="pt-10">
-                <button class="btn-neon" onclick="startGame()">Avvia Motore</button>
+                <button class="btn-neon" onclick="startGame()">Inizia Navigazione</button>
             </div>
         </div>
     </div>
@@ -144,47 +144,75 @@
     <div id="msg-screen" class="absolute inset-0 flex flex-col items-center justify-center hidden pointer-events-auto bg-black/80 backdrop-blur-md px-6">
         <div class="glass-panel p-10 md:p-20 text-center max-w-2xl">
             <h2 id="msg-title" class="text-4xl md:text-6xl font-black mb-6 italic tracking-tighter">VITTORIA</h2>
-            <p id="msg-body" class="mb-10 text-cyan-100/70 text-sm md:text-lg tracking-widest leading-relaxed"></p>
+            <p id="msg-body" class="mb-10 text-purple-100/70 text-sm md:text-lg tracking-widest leading-relaxed"></p>
             <button id="msg-btn" class="btn-neon" onclick="nextAction()">Continua</button>
         </div>
     </div>
 
-    <div id="click-prompt" class="absolute bottom-20 left-1/2 -translate-x-1/2 text-cyan-400 font-bold tracking-[4px] md:tracking-[8px] uppercase animate-pulse hidden pointer-events-none">
-        Clicca o Tocca per lanciare
+    <div id="click-prompt" class="absolute bottom-20 left-1/2 -translate-x-1/2 text-purple-400 font-bold tracking-[4px] md:tracking-[8px] uppercase animate-pulse hidden pointer-events-none">
+        Clicca per lanciare
     </div>
 </div>
 
 <script>
-    // Configurazione Base
-    let scene, camera, renderer, ball, playerPaddle, cpuPaddle, arenaGrid;
+    let scene, camera, renderer, ball, playerPaddle, cpuPaddle, arenaCylinder, longitudinalLines;
+    let stars, nebula, grid;
     let ballVelocity = new THREE.Vector3();
     let gameState = 'START'; 
     let stats = { level: 1, lives: 3, playerScore: 0, cpuScore: 0, totalPoints: 0 };
     let highScore = localStorage.getItem('pong_high_score') || 0;
 
-    const shards = [];
     const trailDots = [];
-    const ringMeshes = [];
-    const MAX_TRAIL = 15;
+    const MAX_TRAIL = 20; 
     const RADIUS = 10;
-    const ARENA_DEPTH = 80;
-    const PADDLE_RADIUS = 3.675; 
-    const BALL_SPEED_START = 0.55;
-    const MAX_SPEED = 1.8; // Velocità massima per evitare che la pallina diventi ingestibile
+    const ARENA_DEPTH = 100;
+    const PADDLE_RADIUS = 3.42; // Ridotto del 10% come richiesto
+    const BALL_SPEED_START = 0.65;
+    const MAX_SPEED = 2.8;
 
-    // Controllo Input
     let currentInputX = 0;
     let currentInputY = 0;
     let motionActive = false;
 
+    // --- AUDIO SYSTEM ---
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    function playCyberSound(type) {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        const filter = audioCtx.createBiquadFilter();
+        osc.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
+        filter.type = 'lowpass';
+        const now = audioCtx.currentTime;
+        switch(type) {
+            case 'hit': 
+                osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, now);
+                gain.gain.setValueAtTime(0.3, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                osc.start(now); osc.stop(now + 0.1); break;
+            case 'paddle': 
+                osc.type = 'square'; osc.frequency.setValueAtTime(120, now);
+                gain.gain.setValueAtTime(0.4, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                osc.start(now); osc.stop(now + 0.3); break;
+            case 'launch': 
+                osc.type = 'sine'; osc.frequency.setValueAtTime(60, now);
+                gain.gain.setValueAtTime(0.2, now); gain.gain.linearRampToValueAtTime(0, now + 0.4);
+                osc.start(now); osc.stop(now + 0.4); break;
+            case 'goal': 
+                osc.type = 'sawtooth'; osc.frequency.setValueAtTime(90, now);
+                gain.gain.setValueAtTime(0.5, now); gain.gain.linearRampToValueAtTime(0, now + 0.8);
+                osc.start(now); osc.stop(now + 0.8); break;
+        }
+    }
+
     function init() {
         scene = new THREE.Scene();
         scene.background = new THREE.Color(0x020205);
-        scene.fog = new THREE.Fog(0x020205, 40, 110);
+        scene.fog = new THREE.FogExp2(0x020205, 0.008);
 
-        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
         
-        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         document.body.appendChild(renderer.domElement);
@@ -192,38 +220,113 @@
         document.getElementById('record-val').innerText = highScore;
 
         // Luci
-        scene.add(new THREE.AmbientLight(0xffffff, 0.3));
-        const l1 = new THREE.PointLight(0x00f2ff, 1.5, 100); l1.position.set(0, 8, 20); scene.add(l1);
-        const l2 = new THREE.PointLight(0xff00ea, 1.5, 100); l2.position.set(0, -8, -20); scene.add(l2);
+        scene.add(new THREE.AmbientLight(0xffffff, 0.1));
+        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.2);
+        scene.add(hemiLight);
 
-        // Arena
-        const cyGeo = new THREE.CylinderGeometry(RADIUS, RADIUS, ARENA_DEPTH, 32, 1, true);
-        const cyMat = new THREE.MeshLambertMaterial({ color: 0x050508, side: THREE.BackSide });
-        const arena = new THREE.Mesh(cyGeo, cyMat);
-        arena.rotation.x = Math.PI / 2;
-        scene.add(arena);
+        // --- EFFETTI SFONDO (FUORI DAL TUNNEL) ---
+        
+        // 1. Starfield
+        const starGeo = new THREE.BufferGeometry();
+        const starCoords = [];
+        for(let i=0; i<3000; i++) {
+            const x = (Math.random() - 0.5) * 1500;
+            const y = (Math.random() - 0.5) * 1500;
+            const z = (Math.random() - 0.5) * 1500;
+            starCoords.push(x, y, z);
+        }
+        starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starCoords, 3));
+        const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 1.5, transparent: true, opacity: 0.8 });
+        stars = new THREE.Points(starGeo, starMat);
+        scene.add(stars);
 
-        const gridGeo = new THREE.CylinderGeometry(RADIUS - 0.05, RADIUS - 0.05, ARENA_DEPTH, 16, 10, true);
-        arenaGrid = new THREE.Mesh(gridGeo, new THREE.MeshBasicMaterial({ color: 0x00f2ff, wireframe: true, transparent: true, opacity: 0.1, side: THREE.BackSide }));
-        arenaGrid.rotation.x = Math.PI / 2;
-        scene.add(arenaGrid);
+        // 2. Nebulosa / Bagliore Spaziale
+        nebula = new THREE.Group();
+        const nebulaCount = 5;
+        for(let i=0; i<nebulaCount; i++) {
+            const geo = new THREE.SphereGeometry(250 + i*50, 32, 32);
+            const mat = new THREE.MeshBasicMaterial({
+                color: i % 2 === 0 ? 0x4a00e0 : 0x8e2de2,
+                transparent: true,
+                opacity: 0.03,
+                side: THREE.BackSide
+            });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.rotation.x = Math.random() * Math.PI;
+            nebula.add(mesh);
+        }
+        scene.add(nebula);
 
-        // Paddle
-        playerPaddle = createPaddle(0x00f2ff);
-        playerPaddle.position.z = ARENA_DEPTH/2 - 4;
+        // 3. Griglia di Orizzonte (Synthwave style)
+        const gridGeo = new THREE.PlaneGeometry(2000, 2000, 50, 50);
+        const gridMat = new THREE.MeshBasicMaterial({ 
+            color: 0x5a189a, 
+            wireframe: true, 
+            transparent: true, 
+            opacity: 0.1 
+        });
+        grid = new THREE.Mesh(gridGeo, gridMat);
+        grid.rotation.x = -Math.PI / 2;
+        grid.position.y = -RADIUS - 20;
+        scene.add(grid);
+
+        // --- ARENA ---
+
+        // Tunnel Cylinder
+        const cyGeo = new THREE.CylinderGeometry(RADIUS, RADIUS, ARENA_DEPTH, 64, 1, true);
+        const cyMat = new THREE.MeshStandardMaterial({
+            color: 0x080812,
+            roughness: 0.5,
+            metalness: 0.5,
+            side: THREE.BackSide,
+            transparent: true,
+            opacity: 0.9 // Leggera trasparenza per vedere lo sfondo
+        });
+        arenaCylinder = new THREE.Mesh(cyGeo, cyMat);
+        arenaCylinder.rotation.x = Math.PI / 2;
+        scene.add(arenaCylinder);
+
+        // Decorative Lines
+        longitudinalLines = new THREE.Group();
+        for (let i = 0; i < 12; i++) {
+            const angle = (i / 12) * Math.PI * 2;
+            const lineMat = new THREE.MeshBasicMaterial({ color: 0xa855f7, transparent: true, opacity: 0.15 });
+            const line = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, ARENA_DEPTH), lineMat);
+            line.position.x = Math.cos(angle) * (RADIUS - 0.1);
+            line.position.y = Math.sin(angle) * (RADIUS - 0.1);
+            line.rotation.z = angle;
+            longitudinalLines.add(line);
+        }
+        scene.add(longitudinalLines);
+
+        // Paddles
+        playerPaddle = createCleanPaddle(0x00f2ff, true);
+        playerPaddle.position.z = ARENA_DEPTH/2 - 5;
         scene.add(playerPaddle);
 
-        cpuPaddle = createPaddle(0xff00ea, 1.5);
-        cpuPaddle.position.z = -ARENA_DEPTH/2 + 4;
+        cpuPaddle = createCleanPaddle(0xff00ea, false);
+        cpuPaddle.position.z = -ARENA_DEPTH/2 + 5;
         scene.add(cpuPaddle);
 
-        // Ball
-        ball = new THREE.Mesh(new THREE.SphereGeometry(1.2, 16, 16), new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffaa00, emissiveIntensity: 5 }));
-        ball.add(new THREE.PointLight(0xffaa00, 6, 20));
+        // Ball - Purple Glow
+        ball = new THREE.Mesh(
+            new THREE.SphereGeometry(1.2, 48, 48), 
+            new THREE.MeshStandardMaterial({ 
+                color: 0x9333ea,
+                emissive: 0xa855f7,
+                emissiveIntensity: 6.0 
+            })
+        );
+        const ballLight = new THREE.PointLight(0xa855f7, 20, 35);
+        ball.add(ballLight);
         scene.add(ball);
 
+        // Trail dots
         for(let i=0; i<MAX_TRAIL; i++) {
-            const t = new THREE.Mesh(new THREE.SphereGeometry(1.0, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0 }));
+            const t = new THREE.Mesh(
+                new THREE.SphereGeometry(0.8, 16, 16), 
+                new THREE.MeshBasicMaterial({ color: 0xa855f7, transparent: true, opacity: 0 })
+            );
             scene.add(t); trailDots.push(t);
         }
 
@@ -232,14 +335,28 @@
         animate();
     }
 
-    function createPaddle(color, brightness = 1) {
-        const g = new THREE.Group();
-        const disc = new THREE.Mesh(new THREE.CylinderGeometry(PADDLE_RADIUS, PADDLE_RADIUS, 0.3, 32), new THREE.MeshStandardMaterial({ color: color, transparent: true, opacity: 0.4 }));
-        disc.rotation.x = Math.PI/2; g.add(disc);
-        const ring = new THREE.Mesh(new THREE.TorusGeometry(PADDLE_RADIUS, 0.2, 8, 48), new THREE.MeshStandardMaterial({ color: color, emissive: color, emissiveIntensity: 10 * brightness }));
-        g.add(ring); g.userData.ring = ring;
-        g.add(new THREE.PointLight(color, 5 * brightness, 20));
-        return g;
+    function createCleanPaddle(color, isPlayer) {
+        const group = new THREE.Group();
+        const ringGeo = new THREE.TorusGeometry(PADDLE_RADIUS, 0.25, 16, 100);
+        const ringMat = new THREE.MeshStandardMaterial({
+            color: color,
+            transparent: true,
+            opacity: 0.3,
+            metalness: 1,
+            roughness: 0
+        });
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        group.add(ring);
+
+        const innerRingGeo = new THREE.TorusGeometry(PADDLE_RADIUS - 0.15, 0.05, 8, 100);
+        const innerRingMat = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.8 });
+        group.add(new THREE.Mesh(innerRingGeo, innerRingMat));
+
+        const pLight = new THREE.PointLight(color, 4, 15);
+        group.add(pLight);
+
+        group.userData = { pLight, initialIntensity: 4 };
+        return group;
     }
 
     function setupEvents() {
@@ -247,117 +364,135 @@
             camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
-
-        // Mouse
         window.addEventListener('mousemove', (e) => {
             if(!motionActive) {
                 currentInputX = (e.clientX / window.innerWidth) * 2 - 1;
                 currentInputY = -(e.clientY / window.innerHeight) * 2 + 1;
             }
         });
-
-        // Touch
         window.addEventListener('touchmove', (e) => {
-            if (e.touches.length > 0) {
-                motionActive = false; // Il tocco sovrascrive il sensore
-                currentInputX = (e.touches[0].clientX / window.innerWidth) * 2 - 1;
-                currentInputY = -(e.touches[0].clientY / window.innerHeight) * 2 + 1;
-            }
-        });
+            e.preventDefault();
+            currentInputX = (e.touches[0].clientX / window.innerWidth) * 2 - 1;
+            currentInputY = -(e.touches[0].clientY / window.innerHeight) * 2 + 1;
+        }, {passive: false});
 
-        // Click to launch
         const launch = () => { if (gameState === 'WAITING_FOR_LAUNCH') launchBall(); };
         window.addEventListener('mousedown', launch);
         window.addEventListener('touchstart', launch);
 
-        // Accelerometro
         window.addEventListener('deviceorientation', (e) => {
-            if(Math.abs(e.gamma) > 2 || Math.abs(e.beta - 45) > 2) {
+            if(Math.abs(e.gamma) > 2) {
                 motionActive = true;
-                currentInputX = THREE.MathUtils.clamp(e.gamma / 25, -1, 1);
-                currentInputY = THREE.MathUtils.clamp(-(e.beta - 45) / 25, -1, 1);
+                currentInputX = THREE.MathUtils.clamp(e.gamma / 20, -1, 1);
+                currentInputY = THREE.MathUtils.clamp(-(e.beta - 45) / 20, -1, 1);
             }
         });
     }
 
     function animate() {
         requestAnimationFrame(animate);
-        
-        // Update Paddle
-        const limit = RADIUS - PADDLE_RADIUS - 0.5;
-        playerPaddle.position.x = THREE.MathUtils.lerp(playerPaddle.position.x, currentInputX * limit, 0.2);
-        playerPaddle.position.y = THREE.MathUtils.lerp(playerPaddle.position.y, currentInputY * limit, 0.2);
+        const time = performance.now() * 0.001;
+
+        // Background Animations
+        if(stars) stars.rotation.y += 0.0002;
+        if(nebula) {
+            nebula.children.forEach((mesh, i) => {
+                mesh.rotation.y += 0.0005 * (i + 1);
+                mesh.rotation.z += 0.0003 * (i + 1);
+            });
+        }
+        if(grid) grid.position.z = (time * 10) % 40; // Effetto scorrimento griglia
+
+        // Paddle Animations
+        [playerPaddle, cpuPaddle].forEach(p => {
+            if (p.userData.pLight.intensity > p.userData.initialIntensity) {
+                p.userData.pLight.intensity -= 0.6;
+            }
+            const s = 1 + Math.sin(time * 3) * 0.02;
+            p.scale.set(s, s, 1);
+        });
+
+        const limit = RADIUS - PADDLE_RADIUS - 0.4;
+        playerPaddle.position.x = THREE.MathUtils.lerp(playerPaddle.position.x, currentInputX * limit, 0.15);
+        playerPaddle.position.y = THREE.MathUtils.lerp(playerPaddle.position.y, currentInputY * limit, 0.15);
 
         if (gameState === 'WAITING_FOR_LAUNCH') {
-            ball.position.set(playerPaddle.position.x, playerPaddle.position.y, playerPaddle.position.z - 2);
+            ball.position.set(playerPaddle.position.x, playerPaddle.position.y, playerPaddle.position.z - 2.5);
         }
 
         if (gameState === 'PLAYING') {
             ball.position.add(ballVelocity);
             
-            // Wall Collision
             const dist = Math.sqrt(ball.position.x**2 + ball.position.y**2);
             if (dist > RADIUS - 1.2) {
                 const normal = new THREE.Vector3(ball.position.x, ball.position.y, 0).normalize();
                 ballVelocity.reflect(normal);
+                ballVelocity.x *= 0.55; 
+                ballVelocity.y *= 0.55;
                 ball.position.copy(normal.multiplyScalar(RADIUS - 1.21).add(new THREE.Vector3(0,0,ball.position.z)));
+                playCyberSound('hit');
             }
 
             // Trail
             for(let i = MAX_TRAIL-1; i > 0; i--) {
                 trailDots[i].position.copy(trailDots[i-1].position);
-                trailDots[i].material.opacity = (1 - i/MAX_TRAIL) * 0.3;
+                trailDots[i].material.opacity = (1 - i/MAX_TRAIL) * 0.4;
+                trailDots[i].scale.setScalar(1 - i/MAX_TRAIL);
             }
             trailDots[0].position.copy(ball.position);
-            trailDots[0].material.opacity = 0.5;
+            trailDots[0].material.opacity = 0.7;
 
             // CPU AI
-            const ease = 0.08 + (stats.level * 0.03);
+            const ease = (stats.level === 1 ? 0.04 : 0.065) + (stats.level * 0.015);
             cpuPaddle.position.x += (ball.position.x - cpuPaddle.position.x) * ease;
             cpuPaddle.position.y += (ball.position.y - cpuPaddle.position.y) * ease;
 
-            // Hits
-            const checkHit = (p) => Math.sqrt((ball.position.x - p.position.x)**2 + (ball.position.y - p.position.y)**2) < PADDLE_RADIUS + 1.2;
+            const checkHit = (p) => Math.sqrt((ball.position.x - p.position.x)**2 + (ball.position.y - p.position.y)**2) < PADDLE_RADIUS + 0.8;
             
-            if (ballVelocity.z > 0 && Math.abs(ball.position.z - playerPaddle.position.z) < 1.5 && checkHit(playerPaddle)) {
-                ballVelocity.z *= -1.05;
-                ballVelocity.x += (ball.position.x - playerPaddle.position.x) * 0.2;
-                ballVelocity.y += (ball.position.y - playerPaddle.position.y) * 0.2;
-                ballVelocity.clampLength(0, MAX_SPEED); // Limite velocità
-                playerPaddle.userData.ring.scale.set(1.4, 1.4, 1.4);
+            if (ballVelocity.z > 0 && Math.abs(ball.position.z - playerPaddle.position.z) < 1.3 && checkHit(playerPaddle)) {
+                ballVelocity.z *= -1.06;
+                ballVelocity.x = (ball.position.x - playerPaddle.position.x) * 0.18;
+                ballVelocity.y = (ball.position.y - playerPaddle.position.y) * 0.18;
+                ballVelocity.clampLength(0, MAX_SPEED);
+                playerPaddle.userData.pLight.intensity = 28;
+                playCyberSound('paddle');
             }
-            if (ballVelocity.z < 0 && Math.abs(ball.position.z - cpuPaddle.position.z) < 1.5 && checkHit(cpuPaddle)) {
-                ballVelocity.z *= -1.05;
-                ballVelocity.x += (ball.position.x - cpuPaddle.position.x) * 0.2;
-                ballVelocity.y += (ball.position.y - cpuPaddle.position.y) * 0.2;
-                ballVelocity.clampLength(0, MAX_SPEED); // Limite velocità
-                cpuPaddle.userData.ring.scale.set(1.4, 1.4, 1.4);
+            if (ballVelocity.z < 0 && Math.abs(ball.position.z - cpuPaddle.position.z) < 1.3 && checkHit(cpuPaddle)) {
+                ballVelocity.z *= -1.06;
+                ballVelocity.x = (ball.position.x - cpuPaddle.position.x) * 0.18;
+                ballVelocity.y = (ball.position.y - cpuPaddle.position.y) * 0.18;
+                ballVelocity.clampLength(0, MAX_SPEED);
+                cpuPaddle.userData.pLight.intensity = 28;
+                playCyberSound('paddle');
             }
-
-            playerPaddle.userData.ring.scale.lerp(new THREE.Vector3(1,1,1), 0.1);
-            cpuPaddle.userData.ring.scale.lerp(new THREE.Vector3(1,1,1), 0.1);
 
             if (ball.position.z > ARENA_DEPTH/2 + 2) handleGoal(false);
             else if (ball.position.z < -ARENA_DEPTH/2 - 2) handleGoal(true);
         }
 
-        // Camera
-        camera.position.lerp(new THREE.Vector3(playerPaddle.position.x * 0.3, playerPaddle.position.y * 0.3 + 4, playerPaddle.position.z + 20), 0.05);
-        camera.lookAt(0, 0, ball.position.z * 0.5);
+        // Camera dynamics con parallasse
+        camera.position.lerp(new THREE.Vector3(
+            playerPaddle.position.x * 0.25, 
+            playerPaddle.position.y * 0.25 + 4, 
+            playerPaddle.position.z + 18
+        ), 0.06);
+        camera.lookAt(0, 0, ball.position.z * 0.3);
 
         renderer.render(scene, camera);
     }
 
     function handleGoal(isPlayer) {
         gameState = 'GOAL_PAUSE';
-        const goalEl = document.getElementById('goal-text');
-        goalEl.innerText = isPlayer ? "GOAL" : "PERSO";
-        goalEl.classList.add('show');
+        playCyberSound('goal');
+        const el = document.getElementById('goal-text');
+        el.innerText = isPlayer ? "PUNTO!" : "PERSO";
+        el.style.textShadow = isPlayer ? "0 0 20px #00f2ff" : "0 0 20px #ff00ea";
+        el.classList.add('show');
         if (isPlayer) { stats.playerScore++; stats.totalPoints += 100 * stats.level; }
         else { stats.cpuScore++; }
         
         setTimeout(() => {
-            goalEl.classList.remove('show');
+            el.classList.remove('show');
             updateUI();
             if (stats.playerScore >= 5 || stats.cpuScore >= 5) checkMatch();
             else resetBall();
@@ -385,11 +520,11 @@
     function checkMatch() {
         if (stats.playerScore >= 5) {
             stats.level++; stats.playerScore = 0; stats.cpuScore = 0;
-            showMsg("LIVELLO COMPLETATO", `Ottimo lavoro. Sei al livello ${stats.level}.`, "Prosegui");
+            showMsg("LIVELLO VINTO", `Accesso autorizzato al settore ${stats.level}.`, "Continua");
         } else {
             stats.lives--; stats.playerScore = 0; stats.cpuScore = 0;
-            if (stats.lives <= 0) showMsg("GAME OVER", `Punteggio finale: ${stats.totalPoints}`, "Ricomincia");
-            else showMsg("SCONFITTA", "Hai perso un'unità di vita.", "Ripristina");
+            if (stats.lives <= 0) showMsg("SISTEMA OFFLINE", `Score finale: ${stats.totalPoints}`, "Ricomincia");
+            else showMsg("DATI CORROTTI", "L'avversario ha superato le difese.", "Riprova");
         }
     }
 
@@ -407,13 +542,15 @@
     }
 
     function launchBall() {
-        const speed = BALL_SPEED_START + (stats.level * 0.05);
-        ballVelocity.set((Math.random()-0.5)*0.2, (Math.random()-0.5)*0.2, -speed);
+        playCyberSound('launch');
+        const speed = BALL_SPEED_START + (stats.level * 0.08);
+        ballVelocity.set((Math.random()-0.5)*0.02, (Math.random()-0.5)*0.02, -speed);
         gameState = 'PLAYING';
         document.getElementById('click-prompt').classList.add('hidden');
     }
 
     window.startGame = () => {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
         document.getElementById('start-screen').classList.add('hidden');
         updateUI();
     };
