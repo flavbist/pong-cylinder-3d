@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>3D Crystal Shatter - Multi-Input Edition</title>
+    <title>3D Crystal Shatter - Universal Edition</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -76,12 +76,7 @@
         }
         #goal-text.show { transform: translate(-50%, -50%) scale(1); opacity: 1; }
 
-        .score-num {
-            font-size: 2.5rem;
-            font-weight: 900;
-            line-height: 1;
-        }
-
+        .score-num { font-size: 2.5rem; font-weight: 900; line-height: 1; }
         canvas { display: block; }
 
         #scanlines {
@@ -128,8 +123,8 @@
         </div>
 
         <div class="glass-panel text-right">
-            <div class="text-[8px] md:text-[10px] opacity-50 uppercase tracking-[2px] mb-1">Record</div>
-            <div id="record-val" class="text-sm md:text-xl font-bold text-yellow-400">...</div>
+            <div class="text-[8px] md:text-[10px] opacity-50 uppercase tracking-[2px] mb-1">Record Locale</div>
+            <div id="record-val" class="text-sm md:text-xl font-bold text-yellow-400">0</div>
         </div>
     </div>
 
@@ -139,9 +134,9 @@
                 <span class="text-white">CRYSTAL</span><br>
                 <span class="text-[#00f2ff]" style="text-shadow: 0 0 30px #00f2ff">SHATTER</span>
             </h1>
-            <p class="text-cyan-100/60 tracking-[5px] md:tracking-[10px] uppercase text-[10px] md:text-sm">Supporto Mouse, Touch e Inclinazione</p>
+            <p class="text-cyan-100/60 tracking-[5px] md:tracking-[10px] uppercase text-[10px] md:text-sm">Controllo Mouse + Accelerometro</p>
             <div class="pt-10">
-                <button class="btn-neon" onclick="startGame()">Inizia Sequenza</button>
+                <button class="btn-neon" onclick="startGame()">Avvia Motore</button>
             </div>
         </div>
     </div>
@@ -155,27 +150,17 @@
     </div>
 
     <div id="click-prompt" class="absolute bottom-20 left-1/2 -translate-x-1/2 text-cyan-400 font-bold tracking-[4px] md:tracking-[8px] uppercase animate-pulse hidden pointer-events-none">
-        Tocca o Clicca per lanciare
+        Clicca o Tocca per lanciare
     </div>
 </div>
 
-<script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-    const firebaseConfig = JSON.parse(__firebase_config);
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-    const appId = typeof __app_id !== 'undefined' ? __app_id : 'pong-3d-crystal-shatter';
-
-    let scene, camera, renderer, ball, playerPaddle, cpuPaddle, arenaCylinder, arenaGrid;
+<script>
+    // Configurazione Base
+    let scene, camera, renderer, ball, playerPaddle, cpuPaddle, arenaGrid;
     let ballVelocity = new THREE.Vector3();
     let gameState = 'START'; 
     let stats = { level: 1, lives: 3, playerScore: 0, cpuScore: 0, totalPoints: 0 };
-    let user = null;
-    let highScores = { level: 1, points: 0 };
+    let highScore = localStorage.getItem('pong_high_score') || 0;
 
     const shards = [];
     const trailDots = [];
@@ -186,46 +171,10 @@
     const PADDLE_RADIUS = 3.675; 
     const BALL_SPEED_START = 0.55;
 
-    // Sistemi di Controllo
-    let inputType = 'MOUSE'; // 'MOUSE', 'TOUCH', 'MOTION'
+    // Controllo Input
     let currentInputX = 0;
     let currentInputY = 0;
-    let isMotionEnabled = false;
-
-    async function initAuth() {
-        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-            await signInWithCustomToken(auth, __initial_auth_token);
-        } else {
-            await signInAnonymously(auth);
-        }
-    }
-
-    onAuthStateChanged(auth, (u) => {
-        user = u;
-        if (user) {
-            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'records', 'global');
-            onSnapshot(docRef, (snap) => {
-                if (snap.exists()) {
-                    highScores = snap.data();
-                    document.getElementById('record-val').innerText = `L${highScores.level} • ${highScores.points}`;
-                } else {
-                    document.getElementById('record-val').innerText = "0";
-                }
-            });
-        }
-    });
-
-    async function saveRecord() {
-        if (!user) return;
-        if (stats.level > highScores.level || (stats.level === highScores.level && stats.totalPoints > highScores.points)) {
-            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'records', 'global'), {
-                level: stats.level,
-                points: stats.totalPoints,
-                uid: user.uid,
-                ts: Date.now()
-            });
-        }
-    }
+    let motionActive = false;
 
     function init() {
         scene = new THREE.Scene();
@@ -237,64 +186,44 @@
         renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        renderer.toneMapping = THREE.ReinhardToneMapping;
         document.body.appendChild(renderer.domElement);
 
-        const ambient = new THREE.AmbientLight(0xffffff, 0.3);
-        scene.add(ambient);
+        document.getElementById('record-val').innerText = highScore;
 
-        const pointLight1 = new THREE.PointLight(0x00f2ff, 1.5, 100);
-        pointLight1.position.set(0, 8, 20);
-        scene.add(pointLight1);
+        // Luci
+        scene.add(new THREE.AmbientLight(0xffffff, 0.3));
+        const l1 = new THREE.PointLight(0x00f2ff, 1.5, 100); l1.position.set(0, 8, 20); scene.add(l1);
+        const l2 = new THREE.PointLight(0xff00ea, 1.5, 100); l2.position.set(0, -8, -20); scene.add(l2);
 
-        const pointLight2 = new THREE.PointLight(0xff00ea, 1.5, 100);
-        pointLight2.position.set(0, -8, -20);
-        scene.add(pointLight2);
-
-        // ARENA
+        // Arena
         const cyGeo = new THREE.CylinderGeometry(RADIUS, RADIUS, ARENA_DEPTH, 32, 1, true);
-        const cyMat = new THREE.MeshLambertMaterial({ color: 0x15151a, side: THREE.BackSide });
-        arenaCylinder = new THREE.Mesh(cyGeo, cyMat);
-        arenaCylinder.rotation.x = Math.PI / 2;
-        scene.add(arenaCylinder);
+        const cyMat = new THREE.MeshLambertMaterial({ color: 0x050508, side: THREE.BackSide });
+        const arena = new THREE.Mesh(cyGeo, cyMat);
+        arena.rotation.x = Math.PI / 2;
+        scene.add(arena);
 
         const gridGeo = new THREE.CylinderGeometry(RADIUS - 0.05, RADIUS - 0.05, ARENA_DEPTH, 16, 10, true);
-        const gridMat = new THREE.MeshBasicMaterial({ color: 0x00f2ff, wireframe: true, transparent: true, opacity: 0.1, side: THREE.BackSide });
-        arenaGrid = new THREE.Mesh(gridGeo, gridMat);
+        arenaGrid = new THREE.Mesh(gridGeo, new THREE.MeshBasicMaterial({ color: 0x00f2ff, wireframe: true, transparent: true, opacity: 0.1, side: THREE.BackSide }));
         arenaGrid.rotation.x = Math.PI / 2;
         scene.add(arenaGrid);
 
-        for(let i=0; i<7; i++) {
-            const ringGeo = new THREE.TorusGeometry(RADIUS, 0.05, 8, 64);
-            const ringMat = new THREE.MeshBasicMaterial({ color: 0x00f2ff, transparent: true, opacity: 0.3 });
-            const ring = new THREE.Mesh(ringGeo, ringMat);
-            ring.position.z = -ARENA_DEPTH/2 + (i * ARENA_DEPTH/6);
-            scene.add(ring);
-            ringMeshes.push(ring);
-        }
-
-        playerPaddle = createFancyPaddle(0x00f2ff, 1);
+        // Paddle
+        playerPaddle = createPaddle(0x00f2ff);
         playerPaddle.position.z = ARENA_DEPTH/2 - 4;
         scene.add(playerPaddle);
 
-        cpuPaddle = createFancyPaddle(0xff00ea, 1.5); 
+        cpuPaddle = createPaddle(0xff00ea, 1.5);
         cpuPaddle.position.z = -ARENA_DEPTH/2 + 4;
         scene.add(cpuPaddle);
 
-        const ballGeo = new THREE.SphereGeometry(1.2, 16, 16);
-        const ballMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffaa00, emissiveIntensity: 5 });
-        ball = new THREE.Mesh(ballGeo, ballMat);
-        const bLight = new THREE.PointLight(0xffaa00, 6, 20);
-        ball.add(bLight);
+        // Ball
+        ball = new THREE.Mesh(new THREE.SphereGeometry(1.2, 16, 16), new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffaa00, emissiveIntensity: 5 }));
+        ball.add(new THREE.PointLight(0xffaa00, 6, 20));
         scene.add(ball);
 
         for(let i=0; i<MAX_TRAIL; i++) {
-            const t = new THREE.Mesh(
-                new THREE.SphereGeometry(1.0, 8, 8),
-                new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0 })
-            );
-            scene.add(t);
-            trailDots.push(t);
+            const t = new THREE.Mesh(new THREE.SphereGeometry(1.0, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0 }));
+            scene.add(t); trailDots.push(t);
         }
 
         setupEvents();
@@ -302,230 +231,134 @@
         animate();
     }
 
-    function createFancyPaddle(color, brightnessScale = 1) {
-        const group = new THREE.Group();
-        const disc = new THREE.Mesh(
-            new THREE.CylinderGeometry(PADDLE_RADIUS, PADDLE_RADIUS, 0.3, 32),
-            new THREE.MeshStandardMaterial({ color: color, transparent: true, opacity: 0.4, metalness: 0.9, roughness: 0.1 })
-        );
-        disc.rotation.x = Math.PI / 2;
-        group.add(disc);
-        const ring = new THREE.Mesh(
-            new THREE.TorusGeometry(PADDLE_RADIUS, 0.2, 8, 48),
-            new THREE.MeshStandardMaterial({ color: color, emissive: color, emissiveIntensity: 10 * brightnessScale })
-        );
-        group.add(ring);
-        group.userData.ring = ring;
-        const pl = new THREE.PointLight(color, 5 * brightnessScale, 20);
-        group.add(pl);
-        return group;
+    function createPaddle(color, brightness = 1) {
+        const g = new THREE.Group();
+        const disc = new THREE.Mesh(new THREE.CylinderGeometry(PADDLE_RADIUS, PADDLE_RADIUS, 0.3, 32), new THREE.MeshStandardMaterial({ color: color, transparent: true, opacity: 0.4 }));
+        disc.rotation.x = Math.PI/2; g.add(disc);
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(PADDLE_RADIUS, 0.2, 8, 48), new THREE.MeshStandardMaterial({ color: color, emissive: color, emissiveIntensity: 10 * brightness }));
+        g.add(ring); g.userData.ring = ring;
+        g.add(new THREE.PointLight(color, 5 * brightness, 20));
+        return g;
     }
 
     function setupEvents() {
         window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
+            camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
-        // Mouse Event
+        // Mouse
         window.addEventListener('mousemove', (e) => {
-            inputType = 'MOUSE';
-            currentInputX = (e.clientX / window.innerWidth) * 2 - 1;
-            currentInputY = -(e.clientY / window.innerHeight) * 2 + 1;
+            if(!motionActive) {
+                currentInputX = (e.clientX / window.innerWidth) * 2 - 1;
+                currentInputY = -(e.clientY / window.innerHeight) * 2 + 1;
+            }
         });
 
-        // Touch Event
+        // Touch
         window.addEventListener('touchmove', (e) => {
             if (e.touches.length > 0) {
-                inputType = 'TOUCH';
+                motionActive = false; // Il tocco sovrascrive il sensore
                 currentInputX = (e.touches[0].clientX / window.innerWidth) * 2 - 1;
                 currentInputY = -(e.touches[0].clientY / window.innerHeight) * 2 + 1;
             }
         });
 
-        window.addEventListener('mousedown', () => { if (gameState === 'WAITING_FOR_LAUNCH') launchBall(); });
-        window.addEventListener('touchstart', (e) => { 
-            if (gameState === 'WAITING_FOR_LAUNCH') launchBall(); 
+        // Click to launch
+        const launch = () => { if (gameState === 'WAITING_FOR_LAUNCH') launchBall(); };
+        window.addEventListener('mousedown', launch);
+        window.addEventListener('touchstart', launch);
+
+        // Accelerometro
+        window.addEventListener('deviceorientation', (e) => {
+            if(Math.abs(e.gamma) > 2 || Math.abs(e.beta - 45) > 2) {
+                motionActive = true;
+                currentInputX = THREE.MathUtils.clamp(e.gamma / 25, -1, 1);
+                currentInputY = THREE.MathUtils.clamp(-(e.beta - 45) / 25, -1, 1);
+            }
         });
-
-        // Motion Sensors
-        if (!(typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function')) {
-            window.addEventListener('deviceorientation', handleMotion);
-        }
     }
 
-    function handleMotion(e) {
-        // Se l'utente muove il telefono in modo significativo, passiamo a MOTION
-        const x = (e.gamma || 0) / 30;
-        const y = (e.beta - 45) / 30;
+    function animate() {
+        requestAnimationFrame(animate);
         
-        if (isMotionEnabled && (Math.abs(x) > 0.05 || Math.abs(y) > 0.05)) {
-            inputType = 'MOTION';
-            currentInputX = x;
-            currentInputY = -y;
-        }
-    }
-
-    function updatePaddlePos() {
-        if (gameState !== 'PLAYING' && gameState !== 'WAITING_FOR_LAUNCH') return;
-        
+        // Update Paddle
         const limit = RADIUS - PADDLE_RADIUS - 0.5;
-        playerPaddle.position.x = THREE.MathUtils.clamp(currentInputX * limit, -limit, limit);
-        playerPaddle.position.y = THREE.MathUtils.clamp(currentInputY * limit, -limit, limit);
-        
+        playerPaddle.position.x = THREE.MathUtils.lerp(playerPaddle.position.x, currentInputX * limit, 0.2);
+        playerPaddle.position.y = THREE.MathUtils.lerp(playerPaddle.position.y, currentInputY * limit, 0.2);
+
         if (gameState === 'WAITING_FOR_LAUNCH') {
             ball.position.set(playerPaddle.position.x, playerPaddle.position.y, playerPaddle.position.z - 2);
         }
-    }
-
-    async function requestMotionPermission() {
-        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-            try {
-                const response = await DeviceOrientationEvent.requestPermission();
-                if (response === 'granted') {
-                    window.addEventListener('deviceorientation', handleMotion);
-                    isMotionEnabled = true;
-                }
-            } catch (e) { console.error("Motion Permission Denied or Error", e); }
-        } else {
-            isMotionEnabled = true;
-            window.addEventListener('deviceorientation', handleMotion);
-        }
-    }
-
-    function resetBall() {
-        ball.position.set(0, 0, playerPaddle.position.z - 2);
-        ballVelocity.set(0,0,0);
-        gameState = 'WAITING_FOR_LAUNCH';
-        document.getElementById('click-prompt').classList.remove('hidden');
-        trailDots.forEach(t => t.material.opacity = 0);
-    }
-
-    function launchBall() {
-        const speed = BALL_SPEED_START + (stats.level * 0.08);
-        ballVelocity.set((Math.random()-0.5)*0.2, (Math.random()-0.5)*0.2, -speed);
-        gameState = 'PLAYING';
-        document.getElementById('click-prompt').classList.add('hidden');
-    }
-
-    function createExplosion(z, isPlayerGoal) {
-        const color = isPlayerGoal ? 0xff00ea : 0x00f2ff;
-        for(let i=0; i<30; i++) {
-            const shard = new THREE.Mesh(
-                new THREE.BoxGeometry(0.3, 0.3, 0.3),
-                new THREE.MeshStandardMaterial({ color: color, emissive: color, emissiveIntensity: 4 })
-            );
-            shard.position.set((Math.random()-0.5)*RADIUS*1.5, (Math.random()-0.5)*RADIUS*1.5, z);
-            shard.userData.vel = new THREE.Vector3((Math.random()-0.5)*0.7, (Math.random()-0.5)*0.7, (z>0?1:-1)*Math.random()*1.2);
-            shard.userData.life = 1.0;
-            scene.add(shard);
-            shards.push(shard);
-        }
-    }
-
-    function animate(time) {
-        requestAnimationFrame(animate);
-
-        updatePaddlePos();
-
-        arenaGrid.material.opacity = 0.05 + Math.sin(time * 0.001) * 0.05;
-        ringMeshes.forEach((r, i) => {
-            r.material.opacity = 0.1 + Math.sin(time * 0.002 + i) * 0.1;
-        });
 
         if (gameState === 'PLAYING') {
             ball.position.add(ballVelocity);
-            ball.rotation.x += 0.1; ball.rotation.y += 0.1;
-
+            
+            // Wall Collision
             const dist = Math.sqrt(ball.position.x**2 + ball.position.y**2);
             if (dist > RADIUS - 1.2) {
                 const normal = new THREE.Vector3(ball.position.x, ball.position.y, 0).normalize();
                 ballVelocity.reflect(normal);
                 ball.position.copy(normal.multiplyScalar(RADIUS - 1.21).add(new THREE.Vector3(0,0,ball.position.z)));
-                playTone(200, 0.05);
             }
 
-            for(let i = MAX_TRAIL - 1; i > 0; i--) {
+            // Trail
+            for(let i = MAX_TRAIL-1; i > 0; i--) {
                 trailDots[i].position.copy(trailDots[i-1].position);
-                trailDots[i].material.opacity = (1 - i/MAX_TRAIL) * 0.4;
-                trailDots[i].scale.setScalar((1 - i/MAX_TRAIL) * 1.1);
+                trailDots[i].material.opacity = (1 - i/MAX_TRAIL) * 0.3;
             }
             trailDots[0].position.copy(ball.position);
-            trailDots[0].material.opacity = 0.6;
+            trailDots[0].material.opacity = 0.5;
 
-            const ease = 0.08 + (stats.level * 0.04);
+            // CPU AI
+            const ease = 0.08 + (stats.level * 0.03);
             cpuPaddle.position.x += (ball.position.x - cpuPaddle.position.x) * ease;
             cpuPaddle.position.y += (ball.position.y - cpuPaddle.position.y) * ease;
 
-            const checkHit = (p) => {
-                const d = Math.sqrt((ball.position.x - p.position.x)**2 + (ball.position.y - p.position.y)**2);
-                return d < PADDLE_RADIUS + 1.2;
-            };
-
-            if (ballVelocity.z > 0 && Math.abs(ball.position.z - playerPaddle.position.z) < 1.5) {
-                if (checkHit(playerPaddle)) {
-                    ballVelocity.z *= -1.06;
-                    ballVelocity.x += (ball.position.x - playerPaddle.position.x) * 0.25;
-                    ballVelocity.y += (ball.position.y - playerPaddle.position.y) * 0.25;
-                    playerPaddle.userData.ring.scale.set(1.4, 1.4, 1.4);
-                    playTone(400, 0.1);
-                }
+            // Hits
+            const checkHit = (p) => Math.sqrt((ball.position.x - p.position.x)**2 + (ball.position.y - p.position.y)**2) < PADDLE_RADIUS + 1.2;
+            
+            if (ballVelocity.z > 0 && Math.abs(ball.position.z - playerPaddle.position.z) < 1.5 && checkHit(playerPaddle)) {
+                ballVelocity.z *= -1.05;
+                ballVelocity.x += (ball.position.x - playerPaddle.position.x) * 0.2;
+                ballVelocity.y += (ball.position.y - playerPaddle.position.y) * 0.2;
+                playerPaddle.userData.ring.scale.set(1.4, 1.4, 1.4);
             }
-            if (ballVelocity.z < 0 && Math.abs(ball.position.z - cpuPaddle.position.z) < 1.5) {
-                if (checkHit(cpuPaddle)) {
-                    ballVelocity.z *= -1.06;
-                    ballVelocity.x += (ball.position.x - cpuPaddle.position.x) * 0.25;
-                    ballVelocity.y += (ball.position.y - cpuPaddle.position.y) * 0.25;
-                    cpuPaddle.userData.ring.scale.set(1.4, 1.4, 1.4);
-                    playTone(500, 0.1);
-                }
+            if (ballVelocity.z < 0 && Math.abs(ball.position.z - cpuPaddle.position.z) < 1.5 && checkHit(cpuPaddle)) {
+                ballVelocity.z *= -1.05;
+                ballVelocity.x += (ball.position.x - cpuPaddle.position.x) * 0.2;
+                ballVelocity.y += (ball.position.y - cpuPaddle.position.y) * 0.2;
+                cpuPaddle.userData.ring.scale.set(1.4, 1.4, 1.4);
             }
 
-            playerPaddle.userData.ring.scale.lerp(new THREE.Vector3(1,1,1), 0.15);
-            cpuPaddle.userData.ring.scale.lerp(new THREE.Vector3(1,1,1), 0.15);
+            playerPaddle.userData.ring.scale.lerp(new THREE.Vector3(1,1,1), 0.1);
+            cpuPaddle.userData.ring.scale.lerp(new THREE.Vector3(1,1,1), 0.1);
 
             if (ball.position.z > ARENA_DEPTH/2 + 2) handleGoal(false);
             else if (ball.position.z < -ARENA_DEPTH/2 - 2) handleGoal(true);
         }
 
-        for(let i=shards.length-1; i>=0; i--) {
-            const s = shards[i];
-            s.position.add(s.userData.vel);
-            s.userData.life -= 0.02;
-            s.material.opacity = s.userData.life;
-            if(s.userData.life <= 0) {
-                scene.remove(s);
-                shards.splice(i, 1);
-            }
-        }
-
-        if (gameState !== 'START' && gameState !== 'MESSAGE') {
-            const targetCamX = playerPaddle.position.x * 0.35;
-            const targetCamY = playerPaddle.position.y * 0.35 + 4.5;
-            const targetCamZ = playerPaddle.position.z + (window.innerWidth < 768 ? 22 : 18);
-            camera.position.lerp(new THREE.Vector3(targetCamX, targetCamY, targetCamZ), 0.06);
-            camera.lookAt(ball.position.x * 0.1, ball.position.y * 0.1, ball.position.z * 0.4);
-        }
+        // Camera
+        camera.position.lerp(new THREE.Vector3(playerPaddle.position.x * 0.3, playerPaddle.position.y * 0.3 + 4, playerPaddle.position.z + 20), 0.05);
+        camera.lookAt(0, 0, ball.position.z * 0.5);
 
         renderer.render(scene, camera);
     }
 
     function handleGoal(isPlayer) {
         gameState = 'GOAL_PAUSE';
-        createExplosion(isPlayer ? -ARENA_DEPTH/2 : ARENA_DEPTH/2, isPlayer);
         const goalEl = document.getElementById('goal-text');
-        goalEl.innerText = isPlayer ? "GOAL" : "SISTEMA PERSO";
-        goalEl.style.textShadow = isPlayer ? "0 0 30px #00f2ff" : "0 0 30px #ff00ea";
+        goalEl.innerText = isPlayer ? "GOAL" : "PERSO";
         goalEl.classList.add('show');
-        playTone(isPlayer ? 600 : 150, 0.6, true);
-        if (isPlayer) { stats.playerScore++; stats.totalPoints += 150 * stats.level; }
+        if (isPlayer) { stats.playerScore++; stats.totalPoints += 100 * stats.level; }
         else { stats.cpuScore++; }
+        
         setTimeout(() => {
             goalEl.classList.remove('show');
             updateUI();
-            checkMatch();
-        }, 1800);
+            if (stats.playerScore >= 5 || stats.cpuScore >= 5) checkMatch();
+            else resetBall();
+        }, 1500);
     }
 
     function updateUI() {
@@ -535,44 +368,51 @@
         const cont = document.getElementById('lives-container');
         cont.innerHTML = '';
         for(let i=0; i<3; i++) {
-            const dot = document.createElement('div');
-            dot.className = `life-dot ${i < stats.lives ? 'life-active' : 'life-empty'}`;
-            cont.appendChild(dot);
+            const d = document.createElement('div');
+            d.className = `life-dot ${i < stats.lives ? 'life-active' : 'life-empty'}`;
+            cont.appendChild(d);
+        }
+        if(stats.totalPoints > highScore) {
+            highScore = stats.totalPoints;
+            localStorage.setItem('pong_high_score', highScore);
+            document.getElementById('record-val').innerText = highScore;
         }
     }
 
     function checkMatch() {
         if (stats.playerScore >= 5) {
             stats.level++; stats.playerScore = 0; stats.cpuScore = 0;
-            saveRecord();
-            showMsg("LIVELLO SUPERATO", `Fase ${stats.level-1} completata.`, "Prosegui");
-        } else if (stats.cpuScore >= 5) {
-            stats.lives--; stats.playerScore = 0; stats.cpuScore = 0;
-            if (stats.lives <= 0) {
-                saveRecord();
-                showMsg("SESSIONE TERMINATA", "Connessione interrotta.", "Ricomincia");
-            } else {
-                showMsg("SET PERSO", "Sincronizzazione fallita.", "Ripristina");
-            }
+            showMsg("LIVELLO COMPLETATO", `Ottimo lavoro. Sei al livello ${stats.level}.`, "Prosegui");
         } else {
-            resetBall();
+            stats.lives--; stats.playerScore = 0; stats.cpuScore = 0;
+            if (stats.lives <= 0) showMsg("GAME OVER", `Punteggio finale: ${stats.totalPoints}`, "Ricomincia");
+            else showMsg("SCONFITTA", "Hai perso un'unità di vita.", "Ripristina");
         }
     }
 
-    function showMsg(title, body, btn) {
+    function showMsg(t, b, btn) {
         gameState = 'MESSAGE';
         document.getElementById('msg-screen').classList.remove('hidden');
-        document.getElementById('msg-title').innerText = title;
-        document.getElementById('msg-body').innerText = body;
+        document.getElementById('msg-title').innerText = t;
+        document.getElementById('msg-body').innerText = b;
         document.getElementById('msg-btn').innerText = btn;
     }
 
-    window.startGame = async () => {
+    function resetBall() {
+        gameState = 'WAITING_FOR_LAUNCH';
+        document.getElementById('click-prompt').classList.remove('hidden');
+    }
+
+    function launchBall() {
+        const speed = BALL_SPEED_START + (stats.level * 0.05);
+        ballVelocity.set((Math.random()-0.5)*0.2, (Math.random()-0.5)*0.2, -speed);
+        gameState = 'PLAYING';
+        document.getElementById('click-prompt').classList.add('hidden');
+    }
+
+    window.startGame = () => {
         document.getElementById('start-screen').classList.add('hidden');
-        if (audioCtx.state === 'suspended') audioCtx.resume();
-        await requestMotionPermission();
         updateUI();
-        resetBall();
     };
 
     window.nextAction = () => {
@@ -584,22 +424,7 @@
         resetBall();
     };
 
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    function playTone(f, d, glit = false) {
-        try {
-            const osc = audioCtx.createOscillator();
-            const g = audioCtx.createGain();
-            osc.type = glit ? 'sawtooth' : 'sine';
-            osc.frequency.setValueAtTime(f, audioCtx.currentTime);
-            if (glit) osc.frequency.exponentialRampToValueAtTime(f/3, audioCtx.currentTime + d);
-            g.gain.setValueAtTime(0.05, audioCtx.currentTime);
-            g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + d);
-            osc.connect(g); g.connect(audioCtx.destination);
-            osc.start(); osc.stop(audioCtx.currentTime + d);
-        } catch(e) {}
-    }
-
-    window.onload = () => { initAuth(); init(); };
+    window.onload = init;
 </script>
 </body>
 </html>
