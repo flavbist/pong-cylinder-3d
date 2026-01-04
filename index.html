@@ -2,7 +2,7 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Cyber Tunnel 3D - Ultra Edition</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -24,7 +24,7 @@
             pointer-events: none; z-index: 10; color: #fff; 
         }
 
-        .hud { padding: 20px; display: flex; justify-content: space-between; pointer-events: auto; }
+        .hud { padding: env(safe-area-inset-top) 20px 20px 20px; display: flex; justify-content: space-between; pointer-events: auto; }
 
         .glass-panel {
             background: rgba(0, 0, 0, 0.7);
@@ -127,20 +127,20 @@
             <div id="score-total" class="text-2xl font-black text-white mt-1 leading-none tracking-tighter">0000</div>
         </div>
         
-        <div class="flex items-center gap-10 glass-panel px-16">
+        <div class="flex items-center gap-10 glass-panel px-6 md:px-16">
             <div class="text-center">
                 <div class="text-[10px] opacity-60 uppercase mb-1 tracking-widest">Utente</div>
-                <div id="player-score" class="score-num text-6xl font-black text-white leading-none">0</div>
+                <div id="player-score" class="score-num text-3xl md:text-6xl font-black text-white leading-none">0</div>
             </div>
             <div class="h-12 w-[1px] bg-white/20"></div>
             <div class="text-center">
                 <div class="text-[10px] opacity-60 uppercase mb-1 tracking-widest">Cortex</div>
-                <div id="cpu-score" class="score-num text-6xl font-black text-pink-500 leading-none">0</div>
+                <div id="cpu-score" class="score-num text-3xl md:text-6xl font-black text-pink-500 leading-none">0</div>
             </div>
         </div>
 
         <div class="glass-panel text-right border-r-4 border-r-pink-500 min-w-[110px]">
-            <div class="text-[10px] opacity-60 uppercase mb-1">Link Speed</div>
+            <div id="motion-indicator" class="text-[10px] opacity-60 uppercase mb-1">Link Speed</div>
             <div id="speed-indicator" class="text-2xl font-black text-pink-400 italic leading-none">0.0</div>
         </div>
     </div>
@@ -149,14 +149,14 @@
     <div id="match-msg">LIVELLO COMPLETATO</div>
 
     <div id="start-screen" class="menu-overlay">
-        <h1 class="text-7xl font-black italic text-center mb-10 tracking-tighter">
+        <h1 class="text-5xl md:text-7xl font-black italic text-center mb-10 tracking-tighter">
             <span class="text-white">CYBER</span>
             <span class="text-cyan-400">TUNNEL</span>
         </h1>
         
         <div class="mb-14 text-center">
             <p class="text-xs uppercase tracking-[0.4em] text-cyan-500/60 mb-6">Seleziona Frequenza Colore</p>
-            <div class="flex gap-4 justify-center flex-wrap max-w-md mx-auto" id="color-selector">
+            <div class="flex gap-4 justify-center flex-wrap max-w-md mx-auto px-4" id="color-selector">
                 <div class="color-dot active" style="background: #00ffff; color: #00ffff;" onclick="selectColor(this, 0x00ffff)"></div>
                 <div class="color-dot" style="background: #00ff00; color: #00ff00;" onclick="selectColor(this, 0x00ff00)"></div>
                 <div class="color-dot" style="background: #ffff00; color: #ffff00;" onclick="selectColor(this, 0xffff00)"></div>
@@ -170,8 +170,8 @@
 
         <button id="main-btn" class="btn-neon text-xl" onclick="initAndStart()">Inizia Sessione</button>
         <div class="mt-8 flex flex-col items-center gap-2">
-            <p class="text-[10px] text-white/30 tracking-[0.3em] uppercase italic">Neural Link v4.1 Active</p>
-            <p class="text-[9px] text-cyan-500/40 uppercase">Vincente a 6 punti | Limite 1.8x</p>
+            <p class="text-[10px] text-white/30 tracking-[0.3em] uppercase italic">Neural Link v4.2 Active</p>
+            <p class="text-[9px] text-cyan-500/40 uppercase">Vincente a 6 punti | Accelerometro supportato</p>
         </div>
     </div>
 
@@ -329,6 +329,10 @@
     let pointerInput = { x: 0, y: 0 };
     let introProgress = 0;
 
+    // --- MOTION CONTROL VARS ---
+    let useMotion = false;
+    let initialBeta = null, initialGamma = null;
+
     function selectColor(el, color) {
         document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('active'));
         el.classList.add('active');
@@ -361,13 +365,12 @@
 
         renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         document.body.appendChild(renderer.domElement);
 
         arenaGroup = new THREE.Group();
         scene.add(arenaGroup);
 
-        // --- SPIRALE ---
         const points = [];
         const loops = 40;
         const ptsPerLoop = 64;
@@ -378,7 +381,7 @@
             points.push(new THREE.Vector3(Math.cos(angle) * RADIUS, Math.sin(angle) * RADIUS, z));
         }
         spiralCurve = new THREE.CatmullRomCurve3(points);
-        const spiralGeo = new THREE.TubeGeometry(spiralCurve, 2048, 0.05, 8, false); 
+        const spiralGeo = new THREE.TubeGeometry(spiralCurve, 1024, 0.05, 8, false); 
         const spiralMat = new THREE.MeshPhysicalMaterial({ 
             color: playerColor, 
             emissive: playerColor, 
@@ -392,7 +395,6 @@
         spiralMesh = new THREE.Mesh(spiralGeo, spiralMat);
         arenaGroup.add(spiralMesh);
 
-        // --- LIGHT RUNNERS ---
         const runnerCount = 12;
         for(let i=0; i<runnerCount; i++) {
             const runnerGeo = new THREE.SphereGeometry(0.2, 8, 8);
@@ -400,28 +402,17 @@
             const runner = new THREE.Mesh(runnerGeo, runnerMat);
             const rLight = new THREE.PointLight(0xddeeff, 1.5, 5);
             runner.add(rLight);
-            
-            runner.userData = {
-                offset: Math.random(),
-                // VELOCITÀ ULTRA LENTA: Ulteriormente ridotta (quasi fermi)
-                speed: 0.00002 + Math.random() * 0.00003 
-            };
+            runner.userData = { offset: Math.random(), speed: 0.00002 + Math.random() * 0.00003 };
             arenaGroup.add(runner);
             lightRunners.push(runner);
         }
 
         const bgGeo = new THREE.CircleGeometry(RADIUS, 32);
-        const bgMat = new THREE.MeshBasicMaterial({ 
-            color: 0xffff00, 
-            transparent: true, 
-            opacity: 0.05, 
-            side: THREE.DoubleSide
-        });
+        const bgMat = new THREE.MeshBasicMaterial({ color: 0xffff00, transparent: true, opacity: 0.05, side: THREE.DoubleSide });
         const backgroundWall = new THREE.Mesh(bgGeo, bgMat);
         backgroundWall.position.z = -ARENA_DEPTH/2 - 0.1;
         arenaGroup.add(backgroundWall);
 
-        // --- TUNNEL LINES ---
         const lineCount = 16;
         for (let i = 0; i < lineCount; i++) {
             const angle = (i / lineCount) * Math.PI * 2;
@@ -437,16 +428,10 @@
             tunnelLines.push(line);
         }
 
-        // --- BALL & TRAIL ---
         ball = new THREE.Group();
         const ballMesh = new THREE.Mesh(
             new THREE.SphereGeometry(BALL_RADIUS, 32, 32),
-            new THREE.MeshStandardMaterial({ 
-                color: 0xffffff, 
-                emissive: 0xffffff, 
-                emissiveIntensity: 3.5,
-                depthTest: false 
-            })
+            new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 3.5, depthTest: false })
         );
         ballMesh.renderOrder = 999; 
         ball.add(ballMesh);
@@ -457,12 +442,7 @@
         for(let i=0; i<15; i++) {
             const p = new THREE.Mesh(
                 new THREE.SphereGeometry(BALL_RADIUS * 0.8, 8, 8), 
-                new THREE.MeshBasicMaterial({ 
-                    color: playerColor, 
-                    transparent: true, 
-                    opacity: 0.5,
-                    depthTest: false 
-                })
+                new THREE.MeshBasicMaterial({ color: playerColor, transparent: true, opacity: 0.5, depthTest: false })
             );
             p.renderOrder = 998;
             p.visible = false;
@@ -478,8 +458,7 @@
         cpuLight = new THREE.PointLight(0xff0088, 25, 60); 
         cpuPaddle.add(cpuLight);
         
-        scene.add(playerPaddle); 
-        scene.add(cpuPaddle);
+        scene.add(playerPaddle, cpuPaddle);
         scene.add(new THREE.AmbientLight(0xffffff, 0.15));
         setupInput();
     }
@@ -501,6 +480,7 @@
     function setupInput() {
         const overlay = document.getElementById('game-overlay');
         const handleInput = (ex, ey) => {
+            if (useMotion) return;
             pointerInput.x = (ex / window.innerWidth) * 2 - 1;
             pointerInput.y = -(ey / window.innerHeight) * 2 + 1;
         };
@@ -508,6 +488,20 @@
         overlay.addEventListener('touchstart', (e) => handleInput(e.touches[0].clientX, e.touches[0].clientY));
         overlay.addEventListener('touchmove', (e) => { handleInput(e.touches[0].clientX, e.touches[0].clientY); e.preventDefault(); }, { passive: false });
         overlay.addEventListener('click', () => { if (gameState === 'WAITING') launchBall(); });
+    }
+
+    function handleMotion(e) {
+        if (!useMotion) return;
+        if (initialBeta === null) {
+            initialBeta = e.beta;
+            initialGamma = e.gamma;
+            return;
+        }
+        // Calcolo deviazione con sensibilità calibrata per il tunnel
+        let dx = (e.gamma - initialGamma) * 0.08;
+        let dy = (e.beta - initialBeta) * 0.08;
+        pointerInput.x = Math.max(-1.3, Math.min(1.3, dx));
+        pointerInput.y = Math.max(-1.3, Math.min(1.3, -dy));
     }
 
     let trailTimer = 0;
@@ -519,14 +513,11 @@
 
         if (spiralMesh) spiralMesh.rotation.z += 0.003;
 
-        // ANIMAZIONE LIGHT RUNNERS (ULTRA LENTA)
         lightRunners.forEach(r => {
             r.userData.offset += r.userData.speed;
             if (r.userData.offset > 1) r.userData.offset = 0;
             const pos = spiralCurve.getPointAt(r.userData.offset);
             r.position.copy(pos);
-            
-            // Rotazione orbitale coerente con il tunnel
             const rot = spiralMesh.rotation.z;
             const x = r.position.x;
             const y = r.position.y;
@@ -624,9 +615,7 @@
                     ballVelocity.z *= -1.04; 
                     ballVelocity.x += (ball.position.x - playerPaddle.position.x) * 0.35;
                     ballVelocity.y += (ball.position.y - playerPaddle.position.y) * 0.35;
-                    
                     if (Math.abs(ballVelocity.z) > MAX_BALL_SPEED) ballVelocity.z = Math.sign(ballVelocity.z) * MAX_BALL_SPEED;
-                    
                     playerPaddle.children[4].material.emissiveIntensity = HIT_INTENSITY_BOOST;
                     playerLight.intensity = 50;
                     playGameSFX(500, 'square', 0.15);
@@ -637,7 +626,6 @@
                 if (Math.sqrt((ball.position.x - cpuPaddle.position.x)**2 + (ball.position.y - cpuPaddle.position.y)**2) < collDist) {
                     ballVelocity.z *= -1.04;
                     if (Math.abs(ballVelocity.z) > MAX_BALL_SPEED) ballVelocity.z = Math.sign(ballVelocity.z) * MAX_BALL_SPEED;
-
                     cpuPaddle.children[4].material.emissiveIntensity = HIT_INTENSITY_BOOST * 1.5;
                     cpuLight.intensity = 80;
                     playGameSFX(400, 'square', 0.15);
@@ -657,6 +645,23 @@
 
     async function initAndStart() {
         if (audioCtx.state === 'suspended') await audioCtx.resume();
+        
+        // --- AUTO-MOTION REQUEST ---
+        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+            try {
+                const permission = await DeviceOrientationEvent.requestPermission();
+                if (permission === 'granted') {
+                    useMotion = true;
+                    window.addEventListener('deviceorientation', handleMotion);
+                    document.getElementById('motion-indicator').innerText = "Neural Accel";
+                }
+            } catch(e) { console.warn("Motion permission denied"); }
+        } else if ('ondeviceorientation' in window) {
+            useMotion = true;
+            window.addEventListener('deviceorientation', handleMotion);
+            document.getElementById('motion-indicator').innerText = "Neural Accel";
+        }
+
         resetMusicCounter();
         isMusicActive = true;
         
@@ -670,12 +675,10 @@
         playerLight.color.copy(pColorObj);
         ballLight.color.copy(pColorObj);
         trail.forEach(t => t.material.color.copy(pColorObj));
-        
         if (spiralMesh) {
             spiralMesh.material.color.copy(pColorObj);
             spiralMesh.material.emissive.copy(pColorObj);
         }
-        
         tunnelLines.forEach(l => l.material.color.copy(pColorObj));
 
         document.getElementById('start-screen').classList.add('hidden');
@@ -694,7 +697,6 @@
         goalEl.innerText = "GOAL!";
         goalEl.style.textShadow = isP ? "0 0 20px #00ffff" : "0 0 20px #ff00ff";
         goalEl.classList.add('active');
-
         if (isP) { 
             stats.playerScore++; 
             bumpScore('player-score', 'score-bump');
@@ -704,10 +706,8 @@
             bumpScore('cpu-score', 'score-bump-cpu');
             playGameSFX(200, 'sawtooth', 0.5, 0.2);
         }
-
         updateUI();
         gameState = 'GOAL_PAUSE';
-        
         setTimeout(() => {
             goalEl.classList.remove('active');
             if (stats.playerScore >= WINNING_SCORE || stats.cpuScore >= WINNING_SCORE) {
@@ -730,26 +730,21 @@
         const delta = stats.playerScore - stats.cpuScore;
         const pointsChange = delta * 100;
         stats.totalPoints += pointsChange;
-        
         const msg = document.getElementById('match-msg');
-        
         if (stats.totalPoints < 0) {
             msg.innerText = "LINK INTERROTTO\nGAME OVER";
             msg.style.color = "#ff0000"; msg.style.opacity = 1;
             setTimeout(() => location.reload(), 4000);
             return;
         }
-
         if (won) {
             msg.innerText = `LIVELLO ${stats.level}\nSYNC COMPLETA`;
             stats.level += 1; 
         } else {
             msg.innerText = "SYNC FALLITA\nRIPETI LIVELLO";
         }
-
         msg.style.color = won ? "#00ffff" : "#ffaa00";
         msg.style.opacity = 1;
-        
         setTimeout(() => {
             msg.style.opacity = 0;
             stats.playerScore = 0; 
