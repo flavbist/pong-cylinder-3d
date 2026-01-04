@@ -151,6 +151,8 @@
     let gameState = 'START'; 
     let stats = { level: 1, playerScore: 0, cpuScore: 0, totalPoints: 0, currentSpeed: 0 };
     let smokeParticles = [];
+    let trailParticles = [];
+    let tunnelRings = [];
     
     // Configurazione
     let playerColor = 0x00ffff;
@@ -175,7 +177,7 @@
     const BALL_RADIUS = 0.8;
     const ARENA_DEPTH = 107.8; 
     const PADDLE_RADIUS = 4.2; 
-    const PADDLE_THICKNESS = 0.08; // Più sottile come richiesto
+    const PADDLE_THICKNESS = 0.08; 
     
     let targetSpeed = 1.4; 
     const SPEED_INCREMENT = 0.1; 
@@ -235,8 +237,8 @@
         const tunnelGeo = new THREE.CylinderGeometry(RADIUS + 0.5, RADIUS + 0.5, ARENA_DEPTH, 48, 1, true);
         const tunnelMat = new THREE.MeshStandardMaterial({
             color: 0x0a0a0f,
-            metalness: 0.0, 
-            roughness: 1.0, 
+            metalness: 0.1, 
+            roughness: 0.8, 
             side: THREE.BackSide,
             emissive: 0x000811,
             emissiveIntensity: 0.1
@@ -244,6 +246,23 @@
         const tunnel = new THREE.Mesh(tunnelGeo, tunnelMat);
         tunnel.rotation.x = Math.PI / 2;
         arenaGroup.add(tunnel);
+
+        // ANELLI DEL TUNNEL
+        const ringGeo = new THREE.TorusGeometry(RADIUS + 0.1, 0.05, 12, 64);
+        const ringCount = 12;
+        for (let i = 0; i < ringCount; i++) {
+            const ringMat = new THREE.MeshStandardMaterial({ 
+                color: playerColor, 
+                emissive: playerColor, 
+                emissiveIntensity: 1,
+                transparent: true,
+                opacity: 0.4
+            });
+            const ring = new THREE.Mesh(ringGeo, ringMat);
+            ring.position.z = (i / (ringCount - 1) - 0.5) * ARENA_DEPTH;
+            arenaGroup.add(ring);
+            tunnelRings.push(ring);
+        }
 
         const starGeo = new THREE.BufferGeometry();
         const starCoords = [];
@@ -285,7 +304,23 @@
         }
     }
 
+    function createTrailEffect() {
+        const p = new THREE.Mesh(
+            new THREE.SphereGeometry(BALL_RADIUS * 0.8, 8, 8),
+            new THREE.MeshBasicMaterial({ 
+                color: ballVelocity.z > 0 ? 0x00ffff : 0xff00ff, 
+                transparent: true, 
+                opacity: 0.4 
+            })
+        );
+        p.position.copy(ball.position);
+        p.userData = { life: 1.0, decay: 0.05 };
+        scene.add(p);
+        trailParticles.push(p);
+    }
+
     function updateSmoke() {
+        // Update smoke (collisions)
         for (let i = smokeParticles.length - 1; i >= 0; i--) {
             const p = smokeParticles[i];
             p.position.add(p.userData.velocity);
@@ -294,29 +329,51 @@
             p.material.opacity = p.userData.life * 0.6;
             if (p.userData.life <= 0) { scene.remove(p); smokeParticles.splice(i, 1); }
         }
+
+        // Update trail (movement)
+        for (let i = trailParticles.length - 1; i >= 0; i--) {
+            const p = trailParticles[i];
+            p.userData.life -= p.userData.decay;
+            p.scale.multiplyScalar(0.92);
+            p.material.opacity = p.userData.life * 0.4;
+            if (p.userData.life <= 0) { scene.remove(p); trailParticles.splice(i, 1); }
+        }
     }
 
     function setupInput() {
         const overlay = document.getElementById('game-overlay');
-        overlay.addEventListener('mousemove', (e) => {
-            pointerInput.x = (e.clientX / window.innerWidth) * 2 - 1;
-            pointerInput.y = -(e.clientY / window.innerHeight) * 2 + 1;
-        });
-        overlay.addEventListener('click', () => { if (gameState === 'WAITING') launchBall(); });
-        overlay.addEventListener('touchstart', (e) => { if (gameState === 'WAITING') launchBall(); });
-        overlay.addEventListener('touchmove', (e) => {
-            const t = e.touches[0];
-            pointerInput.x = (t.clientX / window.innerWidth) * 2 - 1;
-            pointerInput.y = -(t.clientY / window.innerHeight) * 2 + 1;
-        });
+        
+        // Touch e Mouse per orientamento paddle
+        const handleInput = (ex, ey) => {
+            pointerInput.x = (ex / window.innerWidth) * 2 - 1;
+            pointerInput.y = -(ey / window.innerHeight) * 2 + 1;
+        };
 
+        overlay.addEventListener('mousemove', (e) => handleInput(e.clientX, e.clientY));
+        
+        overlay.addEventListener('touchstart', (e) => {
+            if (gameState === 'WAITING') launchBall();
+            handleInput(e.touches[0].clientX, e.touches[0].clientY);
+        }, { passive: false });
+
+        overlay.addEventListener('touchmove', (e) => {
+            handleInput(e.touches[0].clientX, e.touches[0].clientY);
+            e.preventDefault(); // Impedisce scrolling
+        }, { passive: false });
+
+        overlay.addEventListener('click', () => { if (gameState === 'WAITING') launchBall(); });
+
+        // Accelerometro/Giroscopio
         window.addEventListener('deviceorientation', (e) => {
             if (!useMotion) return;
             if (!initialMotionSet) {
-                motionOffset.beta = e.beta; motionOffset.gamma = e.gamma;
+                motionOffset.beta = e.beta; 
+                motionOffset.gamma = e.gamma;
                 initialMotionSet = true;
             }
             const sensitivity = 20;
+            // Gamma è inclinazione destra/sinistra (-90 a 90)
+            // Beta è inclinazione avanti/dietro (-180 a 180)
             motionInput.x = Math.max(-1, Math.min(1, (e.gamma - motionOffset.gamma) / sensitivity));
             motionInput.y = Math.max(-1, Math.min(1, -(e.beta - motionOffset.beta) / sensitivity));
         });
@@ -326,7 +383,10 @@
         if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
             try {
                 const response = await DeviceOrientationEvent.requestPermission();
-                if (response === 'granted') useMotion = true;
+                if (response === 'granted') {
+                    useMotion = true;
+                    initialMotionSet = false;
+                }
             } catch (e) { console.error("Sensors error"); }
         } else {
             useMotion = window.DeviceOrientationEvent !== undefined;
@@ -338,6 +398,15 @@
         if (gameState === 'START' || gameState === 'MATCH_OVER') { renderer.render(scene, camera); return; }
         if (audioCtx.state === 'running') scheduler();
         updateSmoke();
+
+        // Animazione anelli
+        tunnelRings.forEach((ring, i) => {
+            ring.material.emissiveIntensity = 0.5 + Math.sin(Date.now() * 0.002 + i) * 0.5;
+            if (gameState === 'PLAYING') {
+                ring.position.z += stats.currentSpeed * 0.05;
+                if (ring.position.z > ARENA_DEPTH / 2) ring.position.z = -ARENA_DEPTH / 2;
+            }
+        });
 
         if (gameState === 'INTRO') {
             introProgress += 0.007;
@@ -355,6 +424,7 @@
         starField.position.z += 0.3;
         if(starField.position.z > 500) starField.position.z = 0;
 
+        // Somma input (touch + eventuale motion)
         currentInput.x = THREE.MathUtils.clamp(pointerInput.x + motionInput.x, -1, 1);
         currentInput.y = THREE.MathUtils.clamp(pointerInput.y + motionInput.y, -1, 1);
 
@@ -370,6 +440,8 @@
 
         if (gameState === 'PLAYING') {
             ball.position.add(ballVelocity);
+            createTrailEffect(); // Aggiunge scia durante il movimento
+
             const currentSpeed = ballVelocity.length();
             if (currentSpeed < targetSpeed) ballVelocity.setLength(THREE.MathUtils.lerp(currentSpeed, targetSpeed, 0.05));
 
@@ -430,6 +502,11 @@
         playerPaddle.children[0].material.emissive.setHex(playerColor);
         playerPaddle.children[1].material.color.setHex(playerColor);
         
+        tunnelRings.forEach(ring => {
+            ring.material.color.setHex(playerColor);
+            ring.material.emissive.setHex(playerColor);
+        });
+
         document.getElementById('start-screen').classList.add('hidden');
         gameState = 'INTRO';
         updateUI();
@@ -480,14 +557,15 @@
             }
         } else {
             stats.totalPoints -= pointsChange;
-            // Ripete il livello fallito (stats.level non cambia)
         }
 
         setTimeout(() => {
-            msg.opacity = 0;
-            if (stats.totalPoints <= 0) {
+            msg.style.opacity = 0;
+            // Game Over se punti <= 0 E hai perso (impedisce game over immediato all'inizio)
+            if (stats.totalPoints <= 0 && !win) {
                 gameOver();
             } else {
+                if (stats.totalPoints < 0) stats.totalPoints = 0;
                 prepareNextMatch();
             }
         }, 2500);
@@ -503,7 +581,7 @@
         stats.totalPoints = 0;
         
         setTimeout(() => {
-            location.reload(); // Restart totale
+            location.reload(); 
         }, 3000);
     }
 
