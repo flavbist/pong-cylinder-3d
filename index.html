@@ -1,62 +1,4 @@
-<!doctype html>
-<html lang="it">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Pong Cylinder 3D - Pagina principale</title>
-  <style>
-    /* Assicura che l'altezza copra tutta la finestra */
-    html, body { height: 100%; margin: 0; }
-
-    /* Sfondo statico con cover */
-    body {
-      background-image: url('sfondo.webp');
-      background-size: cover;
-      background-position: center;
-      background-repeat: no-repeat;
-      background-attachment: fixed;
-      background-color: #000; /* fallback */
-      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
-      color: #fff;
-    }
-
-    /* Contenitore per il contenuto centrale */
-    .container {
-      min-height: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      padding: 2rem;
-      text-shadow: 0 2px 6px rgba(0,0,0,0.6);
-    }
-
-    h1 { margin: 0 0 1rem 0; font-size: 2.2rem; }
-    p { margin: 0; opacity: 0.9; }
-
-    /* Per migliorare la leggibilità su sfondi molto chiari */
-    .card {
-      background: rgba(0,0,0,0.35);
-      padding: 1.2rem 1.6rem;
-      border-radius: 12px;
-      backdrop-filter: blur(6px);
-      box-shadow: 0 6px 20px rgba(0,0,0,0.45);
-    }
-
-    /* Responsive tweaks */
-    @media (min-width: 800px) {
-      h1 { font-size: 3rem; }
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="card">
-      <h1>Pong Cylinder 3D</h1>
-      <p>La pagina principale ora usa <code>sfondo.webp</code> come sfondo statico. Assicurati che il file <code>sfondo.webp</code> sia nella stessa cartella di <code>index.html</code>.</p>
-    </div>
-  </div>
-  <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="it">
 <head>
     <meta charset="UTF-8">
@@ -283,32 +225,6 @@
         osc.connect(oscGain); oscGain.connect(audioCtx.destination);
         noise.start(time); noise.stop(time + 0.2);
         osc.start(time); osc.stop(time + 0.2);
-    }
-
-    function playFixedGlitch(time, index) {
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        gain.gain.setValueAtTime(0.04, time);
-        gain.gain.exponentialRampToValueAtTime(0.001, time + 0.1);
-        osc.type = (index % 2 === 0) ? 'square' : 'sine';
-        osc.frequency.setValueAtTime(800 + (index * 200), time);
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.start(time); osc.stop(time + 0.1);
-    }
-
-    // Suoni degli effetti di gioco (separati dalla musica)
-    function playGameSFX(freq, type, decay) {
-        if (audioCtx.state === 'suspended') return;
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = type;
-        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + decay);
-        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-        gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + decay);
-        osc.connect(gain); gain.connect(audioCtx.destination);
-        osc.start(); osc.stop(audioCtx.currentTime + decay);
     }
 
     function audioScheduler() {
@@ -612,7 +528,5 @@
 
     window.onload = () => { initThree(); animate(); };
 </script>
-</body>
-</html>
 </body>
 </html>
