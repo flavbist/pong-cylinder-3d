@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>3D Crystal Shatter - Cosmic Edition</title>
+    <title>Cyber Tunnel 3D - Pro Evolution</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -12,7 +12,7 @@
         body { 
             margin: 0; 
             overflow: hidden; 
-            background: #020205; 
+            background: #000; 
             font-family: 'Orbitron', sans-serif;
             user-select: none;
             touch-action: none;
@@ -20,551 +20,515 @@
 
         #ui-layer { 
             position: absolute; 
-            top: 0; 
-            left: 0; 
-            width: 100%; 
-            height: 100%; 
-            pointer-events: none; 
-            z-index: 10; 
-            color: #fff; 
+            top: 0; left: 0; width: 100%; height: 100%; 
+            pointer-events: none; z-index: 10; color: #fff; 
         }
 
-        .hud { 
-            padding: 15px; 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: flex-start;
-            pointer-events: auto; 
-        }
+        .hud { padding: 20px; display: flex; justify-content: space-between; pointer-events: auto; }
 
         .glass-panel {
-            background: rgba(255, 255, 255, 0.03);
-            backdrop-filter: blur(15px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 15px;
-            padding: 10px 15px;
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            border-radius: 4px;
+            padding: 12px 20px;
         }
 
         .btn-neon {
             background: transparent;
-            color: #a855f7;
-            padding: 15px 30px;
-            border: 2px solid #a855f7;
-            border-radius: 5px;
+            color: #00ffff;
+            padding: 15px 40px;
+            border: 2px solid #00ffff;
             cursor: pointer;
             font-weight: 900;
             text-transform: uppercase;
-            letter-spacing: 3px;
+            letter-spacing: 4px;
+            pointer-events: auto;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
             transition: all 0.3s ease;
+        }
+        .btn-neon:hover {
+            background: #00ffff;
+            color: #000;
+            box-shadow: 0 0 40px #00ffff;
+        }
+
+        .color-dot {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 3px solid transparent;
+            transition: all 0.2s;
             pointer-events: auto;
         }
+        .color-dot:hover { transform: scale(1.2); }
+        .color-dot.active { border-color: white; box-shadow: 0 0 15px currentColor; }
 
-        .btn-neon:hover {
-            background: #a855f7;
-            color: #000;
-            box-shadow: 0 0 30px rgba(168, 85, 247, 0.6);
+        .menu-overlay {
+            position: absolute; inset: 0;
+            background: rgba(0,0,0,0.95);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 50; pointer-events: auto;
         }
 
-        #goal-text { 
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0);
-            font-size: 3rem; font-weight: 900; color: #fff; 
-            text-shadow: 0 0 20px #a855f7, 0 0 40px #ff00ea;
-            transition: transform 0.4s cubic-bezier(0.19, 1, 0.22, 1);
-            pointer-events: none; z-index: 20;
-            text-align: center; width: 100%;
-        }
-        #goal-text.show { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        .hidden { display: none !important; }
 
-        .score-num { font-size: 2.5rem; font-weight: 900; line-height: 1; }
-        canvas { display: block; }
-
-        #scanlines {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%);
-            background-size: 100% 4px;
-            pointer-events: none; z-index: 5;
-            opacity: 0.2;
+        #click-prompt {
+            position: absolute; bottom: 25%; left: 50%; transform: translateX(-50%);
+            color: #00ffff; font-weight: 900; letter-spacing: 8px; text-transform: uppercase;
+            animation: blink 0.8s infinite; pointer-events: none;
+            text-shadow: 0 0 10px #00ffff;
         }
 
-        .life-dot { width: 10px; height: 10px; border-radius: 50%; transition: all 0.5s; }
-        .life-active { background: #a855f7; box-shadow: 0 0 10px #a855f7; }
-        .life-empty { background: rgba(255,255,255,0.1); }
-
-        @media (min-width: 768px) {
-            .score-num { font-size: 4rem; }
-            .hud { padding: 30px; }
-            #goal-text { font-size: 8rem; }
+        #match-msg {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            font-size: 3rem; font-weight: 900; text-align: center;
+            text-transform: uppercase; letter-spacing: 10px;
+            z-index: 60; pointer-events: none; opacity: 0; transition: opacity 0.5s;
+            text-shadow: 0 0 20px currentColor;
         }
+
+        @keyframes blink { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
     </style>
 </head>
 <body>
 
-<div id="scanlines"></div>
+<div id="game-overlay" style="position: absolute; inset: 0; z-index: 1;"></div>
 
 <div id="ui-layer">
-    <div id="goal-text">GOAL</div>
-
     <div class="hud">
-        <div class="glass-panel text-left">
-            <div class="text-[8px] md:text-[10px] opacity-50 uppercase tracking-[2px] mb-1">Livello</div>
-            <div id="level-val" class="text-xl md:text-4xl font-black text-white">1</div>
-            <div class="flex gap-1 md:gap-2 mt-2" id="lives-container"></div>
+        <div class="glass-panel border-l-4 border-l-cyan-500 min-w-[150px]">
+            <div id="level-val" class="text-sm tracking-widest text-cyan-400">CORE LEVEL 01</div>
+            <div id="score-total" class="text-xl font-black text-white mt-1">0000</div>
         </div>
-
-        <div class="flex items-center gap-4 md:gap-8">
+        <div class="flex items-center gap-10 glass-panel px-12">
             <div class="text-center">
-                <div id="player-score" class="score-num text-cyan-400">0</div>
+                <div class="text-[10px] opacity-50 uppercase mb-1">Tu</div>
+                <div id="player-score" class="text-5xl font-black text-white leading-none">0</div>
             </div>
-            <div class="text-xl md:text-4xl font-light opacity-20">VS</div>
+            <div class="h-10 w-[2px] bg-cyan-500/30"></div>
             <div class="text-center">
-                <div id="cpu-score" class="score-num text-magenta-500" style="color: #ff00ea;">0</div>
+                <div class="text-[10px] opacity-50 uppercase mb-1">Cortex</div>
+                <div id="cpu-score" class="text-5xl font-black text-pink-500 leading-none">0</div>
+            </div>
+        </div>
+        <div class="glass-panel text-right border-r-4 border-r-pink-500 min-w-[100px]">
+            <div class="text-[10px] opacity-50 uppercase mb-1">Velocità</div>
+            <div id="speed-indicator" class="text-xl font-black text-pink-400 italic">0.0</div>
+        </div>
+    </div>
+
+    <div id="match-msg">MATCH WIN!</div>
+
+    <div id="start-screen" class="menu-overlay">
+        <h1 class="text-6xl font-black italic text-center mb-8 tracking-tighter">
+            <span class="text-white">CYBER</span>
+            <span class="text-cyan-400">TUNNEL</span>
+        </h1>
+        
+        <div class="mb-12 text-center">
+            <p class="text-xs uppercase tracking-widest text-gray-400 mb-4">Scegli il tuo colore</p>
+            <div class="flex gap-6 justify-center" id="color-selector">
+                <div class="color-dot active" style="background: #00ffff; color: #00ffff;" onclick="selectColor(this, 0x00ffff)"></div>
+                <div class="color-dot" style="background: #00ff00; color: #00ff00;" onclick="selectColor(this, 0x00ff00)"></div>
+                <div class="color-dot" style="background: #ffff00; color: #ffff00;" onclick="selectColor(this, 0xffff00)"></div>
+                <div class="color-dot" style="background: #ffaa00; color: #ffaa00;" onclick="selectColor(this, 0xffaa00)"></div>
+                <div class="color-dot" style="background: #ffffff; color: #ffffff;" onclick="selectColor(this, 0xffffff)"></div>
             </div>
         </div>
 
-        <div class="glass-panel text-right">
-            <div class="text-[8px] md:text-[10px] opacity-50 uppercase tracking-[2px] mb-1">Record Locale</div>
-            <div id="record-val" class="text-sm md:text-xl font-bold text-yellow-400">0</div>
-        </div>
+        <button id="main-btn" class="btn-neon text-xl" onclick="initAndStart()">Avvia Sistema</button>
+        <p class="text-[10px] text-cyan-500/50 mt-6 tracking-widest uppercase italic">Obiettivo: 6 Punti | 10 Livelli</p>
     </div>
 
-    <div id="start-screen" class="absolute inset-0 flex flex-col items-center justify-center pointer-events-auto bg-black/60 backdrop-blur-sm px-6">
-        <div class="text-center space-y-6">
-            <h1 class="text-5xl md:text-8xl font-black tracking-tighter italic">
-                <span class="text-white">COSMIC</span><br>
-                <span class="text-[#a855f7]" style="text-shadow: 0 0 30px #a855f7">GLOW</span>
-            </h1>
-            <p class="text-purple-100/60 tracking-[5px] md:tracking-[10px] uppercase text-[10px] md:text-sm">Sincronizzazione Spaziale Reattiva</p>
-            <div class="pt-10">
-                <button class="btn-neon" onclick="startGame()">Inizia Navigazione</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="msg-screen" class="absolute inset-0 flex flex-col items-center justify-center hidden pointer-events-auto bg-black/80 backdrop-blur-md px-6">
-        <div class="glass-panel p-10 md:p-20 text-center max-w-2xl">
-            <h2 id="msg-title" class="text-4xl md:text-6xl font-black mb-6 italic tracking-tighter">VITTORIA</h2>
-            <p id="msg-body" class="mb-10 text-purple-100/70 text-sm md:text-lg tracking-widest leading-relaxed"></p>
-            <button id="msg-btn" class="btn-neon" onclick="nextAction()">Continua</button>
-        </div>
-    </div>
-
-    <div id="click-prompt" class="absolute bottom-20 left-1/2 -translate-x-1/2 text-purple-400 font-bold tracking-[4px] md:tracking-[8px] uppercase animate-pulse hidden pointer-events-none">
-        Clicca per lanciare
-    </div>
+    <div id="click-prompt" class="hidden text-sm">Pronto al Lancio</div>
 </div>
 
 <script>
-    let scene, camera, renderer, ball, playerPaddle, cpuPaddle, arenaCylinder, longitudinalLines;
-    let stars, nebula, grid;
+    let scene, camera, renderer, ball, ballLight, playerPaddle, cpuPaddle, arenaGroup, starField;
     let ballVelocity = new THREE.Vector3();
     let gameState = 'START'; 
-    let stats = { level: 1, lives: 3, playerScore: 0, cpuScore: 0, totalPoints: 0 };
-    let highScore = localStorage.getItem('pong_high_score') || 0;
-
-    const trailDots = [];
-    const MAX_TRAIL = 20; 
-    const RADIUS = 10;
-    const ARENA_DEPTH = 100;
-    const PADDLE_RADIUS = 3.42; // Ridotto del 10% come richiesto
-    const BALL_SPEED_START = 0.65;
-    const MAX_SPEED = 2.8;
-
-    let currentInputX = 0;
-    let currentInputY = 0;
-    let motionActive = false;
-
-    // --- AUDIO SYSTEM ---
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    let stats = { level: 1, playerScore: 0, cpuScore: 0, totalPoints: 0, currentSpeed: 0 };
+    let smokeParticles = [];
     
-    function playCyberSound(type) {
-        if (audioCtx.state === 'suspended') audioCtx.resume();
+    // Configurazione
+    let playerColor = 0x00ffff;
+    const WINNING_SCORE = 6;
+    const MAX_LEVELS = 10;
+    
+    // Controlli Ibridi
+    let useMotion = false;
+    let motionOffset = { beta: 0, gamma: 0 };
+    let initialMotionSet = false;
+    let currentInput = { x: 0, y: 0 };
+    let motionInput = { x: 0, y: 0 };
+    let pointerInput = { x: 0, y: 0 };
+
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    let nextBeatTime = 0;
+    const BPM = 126;
+    const beatLen = 60 / BPM;
+
+    // Parametri Arena
+    const RADIUS = 10;
+    const BALL_RADIUS = 0.8;
+    const ARENA_DEPTH = 107.8; 
+    const PADDLE_RADIUS = 4.2; 
+    const PADDLE_THICKNESS = 0.08; // Più sottile come richiesto
+    
+    let targetSpeed = 1.4; 
+    const SPEED_INCREMENT = 0.1; 
+    const MAX_SPEED_CAP = 5.0; 
+
+    let introProgress = 0;
+
+    function selectColor(el, color) {
+        document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('active'));
+        el.classList.add('active');
+        playerColor = color;
+        const hex = '#' + color.toString(16).padStart(6, '0');
+        document.querySelector('.btn-neon').style.color = hex;
+        document.querySelector('.btn-neon').style.borderColor = hex;
+    }
+
+    function playKick() {
+        if (audioCtx.state !== 'running') return;
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
-        const filter = audioCtx.createBiquadFilter();
-        osc.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
-        filter.type = 'lowpass';
-        const now = audioCtx.currentTime;
-        switch(type) {
-            case 'hit': 
-                osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, now);
-                gain.gain.setValueAtTime(0.3, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-                osc.start(now); osc.stop(now + 0.1); break;
-            case 'paddle': 
-                osc.type = 'square'; osc.frequency.setValueAtTime(120, now);
-                gain.gain.setValueAtTime(0.4, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
-                osc.start(now); osc.stop(now + 0.3); break;
-            case 'launch': 
-                osc.type = 'sine'; osc.frequency.setValueAtTime(60, now);
-                gain.gain.setValueAtTime(0.2, now); gain.gain.linearRampToValueAtTime(0, now + 0.4);
-                osc.start(now); osc.stop(now + 0.4); break;
-            case 'goal': 
-                osc.type = 'sawtooth'; osc.frequency.setValueAtTime(90, now);
-                gain.gain.setValueAtTime(0.5, now); gain.gain.linearRampToValueAtTime(0, now + 0.8);
-                osc.start(now); osc.stop(now + 0.8); break;
+        const time = audioCtx.currentTime;
+        osc.frequency.setValueAtTime(150, time);
+        osc.frequency.exponentialRampToValueAtTime(0.01, time + 0.4);
+        gain.gain.setValueAtTime(0.4, time);
+        gain.gain.linearRampToValueAtTime(0, time + 0.4);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); osc.stop(time + 0.4);
+    }
+
+    function scheduler() {
+        while (nextBeatTime < audioCtx.currentTime + 0.1) {
+            playKick();
+            nextBeatTime += beatLen;
         }
     }
 
-    function init() {
+    function initThree() {
         scene = new THREE.Scene();
         scene.background = new THREE.Color(0x020205);
-        scene.fog = new THREE.FogExp2(0x020205, 0.008);
-
-        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
+        scene.fog = new THREE.Fog(0x000000, 10, 300);
         
-        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
+        camera.position.set(80, 40, 100);
+        camera.lookAt(0, 0, 0);
+
+        renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.setPixelRatio(window.devicePixelRatio);
         document.body.appendChild(renderer.domElement);
 
-        document.getElementById('record-val').innerText = highScore;
+        const ambLight = new THREE.AmbientLight(0xffffff, 0.4);
+        scene.add(ambLight);
 
-        // Luci
-        scene.add(new THREE.AmbientLight(0xffffff, 0.1));
-        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.2);
-        scene.add(hemiLight);
+        arenaGroup = new THREE.Group();
+        scene.add(arenaGroup);
 
-        // --- EFFETTI SFONDO (FUORI DAL TUNNEL) ---
-        
-        // 1. Starfield
+        const tunnelGeo = new THREE.CylinderGeometry(RADIUS + 0.5, RADIUS + 0.5, ARENA_DEPTH, 48, 1, true);
+        const tunnelMat = new THREE.MeshStandardMaterial({
+            color: 0x0a0a0f,
+            metalness: 0.0, 
+            roughness: 1.0, 
+            side: THREE.BackSide,
+            emissive: 0x000811,
+            emissiveIntensity: 0.1
+        });
+        const tunnel = new THREE.Mesh(tunnelGeo, tunnelMat);
+        tunnel.rotation.x = Math.PI / 2;
+        arenaGroup.add(tunnel);
+
         const starGeo = new THREE.BufferGeometry();
         const starCoords = [];
-        for(let i=0; i<3000; i++) {
-            const x = (Math.random() - 0.5) * 1500;
-            const y = (Math.random() - 0.5) * 1500;
-            const z = (Math.random() - 0.5) * 1500;
-            starCoords.push(x, y, z);
-        }
+        for(let i=0; i<1500; i++) starCoords.push((Math.random()-0.5)*1200, (Math.random()-0.5)*1200, (Math.random()-0.5)*2000);
         starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starCoords, 3));
-        const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 1.5, transparent: true, opacity: 0.8 });
-        stars = new THREE.Points(starGeo, starMat);
-        scene.add(stars);
+        starField = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.8, transparent: true, opacity: 0.5 }));
+        scene.add(starField);
 
-        // 2. Nebulosa / Bagliore Spaziale
-        nebula = new THREE.Group();
-        const nebulaCount = 5;
-        for(let i=0; i<nebulaCount; i++) {
-            const geo = new THREE.SphereGeometry(250 + i*50, 32, 32);
-            const mat = new THREE.MeshBasicMaterial({
-                color: i % 2 === 0 ? 0x4a00e0 : 0x8e2de2,
-                transparent: true,
-                opacity: 0.03,
-                side: THREE.BackSide
-            });
-            const mesh = new THREE.Mesh(geo, mat);
-            mesh.rotation.x = Math.random() * Math.PI;
-            nebula.add(mesh);
-        }
-        scene.add(nebula);
-
-        // 3. Griglia di Orizzonte (Synthwave style)
-        const gridGeo = new THREE.PlaneGeometry(2000, 2000, 50, 50);
-        const gridMat = new THREE.MeshBasicMaterial({ 
-            color: 0x5a189a, 
-            wireframe: true, 
-            transparent: true, 
-            opacity: 0.1 
-        });
-        grid = new THREE.Mesh(gridGeo, gridMat);
-        grid.rotation.x = -Math.PI / 2;
-        grid.position.y = -RADIUS - 20;
-        scene.add(grid);
-
-        // --- ARENA ---
-
-        // Tunnel Cylinder
-        const cyGeo = new THREE.CylinderGeometry(RADIUS, RADIUS, ARENA_DEPTH, 64, 1, true);
-        const cyMat = new THREE.MeshStandardMaterial({
-            color: 0x080812,
-            roughness: 0.5,
-            metalness: 0.5,
-            side: THREE.BackSide,
-            transparent: true,
-            opacity: 0.9 // Leggera trasparenza per vedere lo sfondo
-        });
-        arenaCylinder = new THREE.Mesh(cyGeo, cyMat);
-        arenaCylinder.rotation.x = Math.PI / 2;
-        scene.add(arenaCylinder);
-
-        // Decorative Lines
-        longitudinalLines = new THREE.Group();
-        for (let i = 0; i < 12; i++) {
-            const angle = (i / 12) * Math.PI * 2;
-            const lineMat = new THREE.MeshBasicMaterial({ color: 0xa855f7, transparent: true, opacity: 0.15 });
-            const line = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, ARENA_DEPTH), lineMat);
-            line.position.x = Math.cos(angle) * (RADIUS - 0.1);
-            line.position.y = Math.sin(angle) * (RADIUS - 0.1);
-            line.rotation.z = angle;
-            longitudinalLines.add(line);
-        }
-        scene.add(longitudinalLines);
-
-        // Paddles
-        playerPaddle = createCleanPaddle(0x00f2ff, true);
-        playerPaddle.position.z = ARENA_DEPTH/2 - 5;
-        scene.add(playerPaddle);
-
-        cpuPaddle = createCleanPaddle(0xff00ea, false);
-        cpuPaddle.position.z = -ARENA_DEPTH/2 + 5;
-        scene.add(cpuPaddle);
-
-        // Ball - Purple Glow
-        ball = new THREE.Mesh(
-            new THREE.SphereGeometry(1.2, 48, 48), 
-            new THREE.MeshStandardMaterial({ 
-                color: 0x9333ea,
-                emissive: 0xa855f7,
-                emissiveIntensity: 6.0 
-            })
-        );
-        const ballLight = new THREE.PointLight(0xa855f7, 20, 35);
+        ball = new THREE.Group();
+        ball.add(new THREE.Mesh(new THREE.SphereGeometry(BALL_RADIUS, 32, 32), new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 2 })));
+        ballLight = new THREE.PointLight(0x00ffff, 6, 40);
         ball.add(ballLight);
         scene.add(ball);
 
-        // Trail dots
-        for(let i=0; i<MAX_TRAIL; i++) {
-            const t = new THREE.Mesh(
-                new THREE.SphereGeometry(0.8, 16, 16), 
-                new THREE.MeshBasicMaterial({ color: 0xa855f7, transparent: true, opacity: 0 })
-            );
-            scene.add(t); trailDots.push(t);
+        playerPaddle = createPaddle(playerColor, ARENA_DEPTH/2 - 10);
+        cpuPaddle = createPaddle(0xff00ff, -ARENA_DEPTH/2 + 10);
+        scene.add(playerPaddle); scene.add(cpuPaddle);
+
+        setupInput();
+    }
+
+    function createPaddle(color, z) {
+        const g = new THREE.Group();
+        const main = new THREE.Mesh(new THREE.TorusGeometry(PADDLE_RADIUS, PADDLE_THICKNESS, 16, 64), new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 2.5 }));
+        const glow = new THREE.Mesh(new THREE.CircleGeometry(PADDLE_RADIUS, 32), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.05, side: THREE.DoubleSide }));
+        g.add(main); g.add(glow);
+        g.position.z = z;
+        return g;
+    }
+
+    function createSmokeEffect(pos, color = 0x888888, count = 8) {
+        for(let i = 0; i < count; i++) {
+            const size = Math.random() * 0.4 + 0.2;
+            const p = new THREE.Mesh(new THREE.SphereGeometry(size, 8, 8), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.6 }));
+            p.position.copy(pos);
+            p.userData = { velocity: new THREE.Vector3((Math.random()-0.5)*0.1, Math.random()*0.15+0.05, (Math.random()-0.5)*0.1), life: 1.0, decay: Math.random()*0.02+0.015 };
+            scene.add(p);
+            smokeParticles.push(p);
         }
-
-        setupEvents();
-        resetBall();
-        animate();
     }
 
-    function createCleanPaddle(color, isPlayer) {
-        const group = new THREE.Group();
-        const ringGeo = new THREE.TorusGeometry(PADDLE_RADIUS, 0.25, 16, 100);
-        const ringMat = new THREE.MeshStandardMaterial({
-            color: color,
-            transparent: true,
-            opacity: 0.3,
-            metalness: 1,
-            roughness: 0
-        });
-        const ring = new THREE.Mesh(ringGeo, ringMat);
-        group.add(ring);
-
-        const innerRingGeo = new THREE.TorusGeometry(PADDLE_RADIUS - 0.15, 0.05, 8, 100);
-        const innerRingMat = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.8 });
-        group.add(new THREE.Mesh(innerRingGeo, innerRingMat));
-
-        const pLight = new THREE.PointLight(color, 4, 15);
-        group.add(pLight);
-
-        group.userData = { pLight, initialIntensity: 4 };
-        return group;
+    function updateSmoke() {
+        for (let i = smokeParticles.length - 1; i >= 0; i--) {
+            const p = smokeParticles[i];
+            p.position.add(p.userData.velocity);
+            p.scale.multiplyScalar(1.02);
+            p.userData.life -= p.userData.decay;
+            p.material.opacity = p.userData.life * 0.6;
+            if (p.userData.life <= 0) { scene.remove(p); smokeParticles.splice(i, 1); }
+        }
     }
 
-    function setupEvents() {
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
+    function setupInput() {
+        const overlay = document.getElementById('game-overlay');
+        overlay.addEventListener('mousemove', (e) => {
+            pointerInput.x = (e.clientX / window.innerWidth) * 2 - 1;
+            pointerInput.y = -(e.clientY / window.innerHeight) * 2 + 1;
         });
-        window.addEventListener('mousemove', (e) => {
-            if(!motionActive) {
-                currentInputX = (e.clientX / window.innerWidth) * 2 - 1;
-                currentInputY = -(e.clientY / window.innerHeight) * 2 + 1;
-            }
+        overlay.addEventListener('click', () => { if (gameState === 'WAITING') launchBall(); });
+        overlay.addEventListener('touchstart', (e) => { if (gameState === 'WAITING') launchBall(); });
+        overlay.addEventListener('touchmove', (e) => {
+            const t = e.touches[0];
+            pointerInput.x = (t.clientX / window.innerWidth) * 2 - 1;
+            pointerInput.y = -(t.clientY / window.innerHeight) * 2 + 1;
         });
-        window.addEventListener('touchmove', (e) => {
-            e.preventDefault();
-            currentInputX = (e.touches[0].clientX / window.innerWidth) * 2 - 1;
-            currentInputY = -(e.touches[0].clientY / window.innerHeight) * 2 + 1;
-        }, {passive: false});
-
-        const launch = () => { if (gameState === 'WAITING_FOR_LAUNCH') launchBall(); };
-        window.addEventListener('mousedown', launch);
-        window.addEventListener('touchstart', launch);
 
         window.addEventListener('deviceorientation', (e) => {
-            if(Math.abs(e.gamma) > 2) {
-                motionActive = true;
-                currentInputX = THREE.MathUtils.clamp(e.gamma / 20, -1, 1);
-                currentInputY = THREE.MathUtils.clamp(-(e.beta - 45) / 20, -1, 1);
+            if (!useMotion) return;
+            if (!initialMotionSet) {
+                motionOffset.beta = e.beta; motionOffset.gamma = e.gamma;
+                initialMotionSet = true;
             }
+            const sensitivity = 20;
+            motionInput.x = Math.max(-1, Math.min(1, (e.gamma - motionOffset.gamma) / sensitivity));
+            motionInput.y = Math.max(-1, Math.min(1, -(e.beta - motionOffset.beta) / sensitivity));
         });
+    }
+
+    async function requestMotionPermission() {
+        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+            try {
+                const response = await DeviceOrientationEvent.requestPermission();
+                if (response === 'granted') useMotion = true;
+            } catch (e) { console.error("Sensors error"); }
+        } else {
+            useMotion = window.DeviceOrientationEvent !== undefined;
+        }
     }
 
     function animate() {
         requestAnimationFrame(animate);
-        const time = performance.now() * 0.001;
+        if (gameState === 'START' || gameState === 'MATCH_OVER') { renderer.render(scene, camera); return; }
+        if (audioCtx.state === 'running') scheduler();
+        updateSmoke();
 
-        // Background Animations
-        if(stars) stars.rotation.y += 0.0002;
-        if(nebula) {
-            nebula.children.forEach((mesh, i) => {
-                mesh.rotation.y += 0.0005 * (i + 1);
-                mesh.rotation.z += 0.0003 * (i + 1);
-            });
-        }
-        if(grid) grid.position.z = (time * 10) % 40; // Effetto scorrimento griglia
-
-        // Paddle Animations
-        [playerPaddle, cpuPaddle].forEach(p => {
-            if (p.userData.pLight.intensity > p.userData.initialIntensity) {
-                p.userData.pLight.intensity -= 0.6;
+        if (gameState === 'INTRO') {
+            introProgress += 0.007;
+            const radius = 100 * (1 - introProgress) + 15 * introProgress; 
+            camera.position.x = Math.cos(introProgress * Math.PI) * radius;
+            camera.position.y = 40 * (1 - introProgress) + 4 * introProgress;
+            camera.position.z = Math.sin(introProgress * Math.PI) * radius + (ARENA_DEPTH/2 * introProgress);
+            camera.lookAt(0, 0, ball.position.z * 0.5);
+            if (introProgress >= 1) {
+                gameState = 'WAITING';
+                document.getElementById('click-prompt').classList.remove('hidden');
             }
-            const s = 1 + Math.sin(time * 3) * 0.02;
-            p.scale.set(s, s, 1);
-        });
+        }
 
-        const limit = RADIUS - PADDLE_RADIUS - 0.4;
-        playerPaddle.position.x = THREE.MathUtils.lerp(playerPaddle.position.x, currentInputX * limit, 0.15);
-        playerPaddle.position.y = THREE.MathUtils.lerp(playerPaddle.position.y, currentInputY * limit, 0.15);
+        starField.position.z += 0.3;
+        if(starField.position.z > 500) starField.position.z = 0;
 
-        if (gameState === 'WAITING_FOR_LAUNCH') {
-            ball.position.set(playerPaddle.position.x, playerPaddle.position.y, playerPaddle.position.z - 2.5);
+        currentInput.x = THREE.MathUtils.clamp(pointerInput.x + motionInput.x, -1, 1);
+        currentInput.y = THREE.MathUtils.clamp(pointerInput.y + motionInput.y, -1, 1);
+
+        const limit = RADIUS - PADDLE_RADIUS - 0.5;
+        playerPaddle.position.x = THREE.MathUtils.lerp(playerPaddle.position.x, currentInput.x * limit, 0.2); 
+        playerPaddle.position.y = THREE.MathUtils.lerp(playerPaddle.position.y, currentInput.y * limit, 0.2);
+        playerPaddle.rotation.z += 0.02;
+
+        if (gameState === 'WAITING') {
+            ball.position.set(playerPaddle.position.x, playerPaddle.position.y, playerPaddle.position.z - 3);
+            ballLight.intensity = 2 + Math.sin(Date.now() * 0.01) * 1.5;
         }
 
         if (gameState === 'PLAYING') {
             ball.position.add(ballVelocity);
-            
-            const dist = Math.sqrt(ball.position.x**2 + ball.position.y**2);
-            if (dist > RADIUS - 1.2) {
+            const currentSpeed = ballVelocity.length();
+            if (currentSpeed < targetSpeed) ballVelocity.setLength(THREE.MathUtils.lerp(currentSpeed, targetSpeed, 0.05));
+
+            const ballDist = Math.sqrt(ball.position.x**2 + ball.position.y**2);
+            const maxBound = RADIUS - BALL_RADIUS - 0.1;
+            if (ballDist > maxBound) {
                 const normal = new THREE.Vector3(ball.position.x, ball.position.y, 0).normalize();
                 ballVelocity.reflect(normal);
-                ballVelocity.x *= 0.55; 
-                ballVelocity.y *= 0.55;
-                ball.position.copy(normal.multiplyScalar(RADIUS - 1.21).add(new THREE.Vector3(0,0,ball.position.z)));
-                playCyberSound('hit');
+                ball.position.x = normal.x * maxBound;
+                ball.position.y = normal.y * maxBound;
+                createSmokeEffect(ball.position.clone(), playerColor, 5);
             }
 
-            // Trail
-            for(let i = MAX_TRAIL-1; i > 0; i--) {
-                trailDots[i].position.copy(trailDots[i-1].position);
-                trailDots[i].material.opacity = (1 - i/MAX_TRAIL) * 0.4;
-                trailDots[i].scale.setScalar(1 - i/MAX_TRAIL);
-            }
-            trailDots[0].position.copy(ball.position);
-            trailDots[0].material.opacity = 0.7;
-
-            // CPU AI
-            const ease = (stats.level === 1 ? 0.04 : 0.065) + (stats.level * 0.015);
-            cpuPaddle.position.x += (ball.position.x - cpuPaddle.position.x) * ease;
-            cpuPaddle.position.y += (ball.position.y - cpuPaddle.position.y) * ease;
-
-            const checkHit = (p) => Math.sqrt((ball.position.x - p.position.x)**2 + (ball.position.y - p.position.y)**2) < PADDLE_RADIUS + 0.8;
+            cpuPaddle.position.x += (ball.position.x - cpuPaddle.position.x) * (0.04 + stats.level * 0.012);
+            cpuPaddle.position.y += (ball.position.y - cpuPaddle.position.y) * (0.04 + stats.level * 0.012);
             
-            if (ballVelocity.z > 0 && Math.abs(ball.position.z - playerPaddle.position.z) < 1.3 && checkHit(playerPaddle)) {
-                ballVelocity.z *= -1.06;
-                ballVelocity.x = (ball.position.x - playerPaddle.position.x) * 0.18;
-                ballVelocity.y = (ball.position.y - playerPaddle.position.y) * 0.18;
-                ballVelocity.clampLength(0, MAX_SPEED);
-                playerPaddle.userData.pLight.intensity = 28;
-                playCyberSound('paddle');
+            const collDist = PADDLE_RADIUS + BALL_RADIUS;
+            if (ballVelocity.z > 0 && ball.position.z > playerPaddle.position.z - 1.2) {
+                if (Math.sqrt((ball.position.x - playerPaddle.position.x)**2 + (ball.position.y - playerPaddle.position.y)**2) < collDist) {
+                    ballVelocity.z *= -1;
+                    targetSpeed = Math.min(targetSpeed + SPEED_INCREMENT, MAX_SPEED_CAP + stats.level * 0.2);
+                    ballVelocity.setLength(targetSpeed);
+                    feedbackPaddle(playerPaddle);
+                }
             }
-            if (ballVelocity.z < 0 && Math.abs(ball.position.z - cpuPaddle.position.z) < 1.3 && checkHit(cpuPaddle)) {
-                ballVelocity.z *= -1.06;
-                ballVelocity.x = (ball.position.x - cpuPaddle.position.x) * 0.18;
-                ballVelocity.y = (ball.position.y - cpuPaddle.position.y) * 0.18;
-                ballVelocity.clampLength(0, MAX_SPEED);
-                cpuPaddle.userData.pLight.intensity = 28;
-                playCyberSound('paddle');
+            if (ballVelocity.z < 0 && ball.position.z < cpuPaddle.position.z + 1.2) {
+                if (Math.sqrt((ball.position.x - cpuPaddle.position.x)**2 + (ball.position.y - cpuPaddle.position.y)**2) < collDist) {
+                    ballVelocity.z *= -1;
+                    targetSpeed = Math.min(targetSpeed + SPEED_INCREMENT, MAX_SPEED_CAP + stats.level * 0.2);
+                    ballVelocity.setLength(targetSpeed);
+                    feedbackPaddle(cpuPaddle);
+                }
             }
 
-            if (ball.position.z > ARENA_DEPTH/2 + 2) handleGoal(false);
-            else if (ball.position.z < -ARENA_DEPTH/2 - 2) handleGoal(true);
+            if (ball.position.z > ARENA_DEPTH/2 + 10) handleGoal(false);
+            if (ball.position.z < -ARENA_DEPTH/2 - 10) handleGoal(true);
+            stats.currentSpeed = ballVelocity.length();
+            updateUI();
         }
 
-        // Camera dynamics con parallasse
-        camera.position.lerp(new THREE.Vector3(
-            playerPaddle.position.x * 0.25, 
-            playerPaddle.position.y * 0.25 + 4, 
-            playerPaddle.position.z + 18
-        ), 0.06);
-        camera.lookAt(0, 0, ball.position.z * 0.3);
-
+        if (gameState === 'PLAYING' || gameState === 'WAITING') {
+            camera.position.lerp(new THREE.Vector3(playerPaddle.position.x*0.5, playerPaddle.position.y*0.5+4, ARENA_DEPTH/2+15), 0.1);
+            camera.lookAt(ball.position.x*0.1, ball.position.y*0.1, ball.position.z*0.2);
+        }
         renderer.render(scene, camera);
     }
 
-    function handleGoal(isPlayer) {
-        gameState = 'GOAL_PAUSE';
-        playCyberSound('goal');
-        const el = document.getElementById('goal-text');
-        el.innerText = isPlayer ? "PUNTO!" : "PERSO";
-        el.style.textShadow = isPlayer ? "0 0 20px #00f2ff" : "0 0 20px #ff00ea";
-        el.classList.add('show');
-        if (isPlayer) { stats.playerScore++; stats.totalPoints += 100 * stats.level; }
-        else { stats.cpuScore++; }
+    function feedbackPaddle(p) {
+        p.children[0].material.emissiveIntensity = 15;
+        setTimeout(() => p.children[0].material.emissiveIntensity = 2.5, 150);
+    }
+
+    async function initAndStart() {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        await requestMotionPermission();
+        
+        playerPaddle.children[0].material.color.setHex(playerColor);
+        playerPaddle.children[0].material.emissive.setHex(playerColor);
+        playerPaddle.children[1].material.color.setHex(playerColor);
+        
+        document.getElementById('start-screen').classList.add('hidden');
+        gameState = 'INTRO';
+        updateUI();
+    }
+
+    function resetToWait() {
+        gameState = 'WAITING';
+        ballVelocity.set(0,0,0);
+        targetSpeed = 1.4 + (stats.level * 0.2);
+        document.getElementById('click-prompt').classList.remove('hidden');
+    }
+
+    function launchBall() {
+        document.getElementById('click-prompt').classList.add('hidden');
+        gameState = 'PLAYING';
+        ballVelocity.set((Math.random()-0.5)*0.5, (Math.random()-0.5)*0.5, -targetSpeed);
+    }
+
+    function handleGoal(isP) {
+        if (isP) stats.playerScore++;
+        else stats.cpuScore++;
+        
+        updateUI();
+
+        if (stats.playerScore >= WINNING_SCORE || stats.cpuScore >= WINNING_SCORE) {
+            endMatch();
+        } else {
+            resetToWait();
+        }
+    }
+
+    function endMatch() {
+        gameState = 'MATCH_OVER';
+        const win = stats.playerScore >= WINNING_SCORE;
+        const delta = Math.abs(stats.playerScore - stats.cpuScore);
+        const pointsChange = delta * 100;
+        
+        const msg = document.getElementById('match-msg');
+        msg.innerText = win ? `Vittoria! +${pointsChange}` : `Sconfitta! -${pointsChange}`;
+        msg.style.color = win ? "#00ff00" : "#ff0000";
+        msg.style.opacity = 1;
+
+        if (win) {
+            stats.totalPoints += pointsChange;
+            if (stats.level < MAX_LEVELS) stats.level++;
+            else {
+                msg.innerText = "CAMPIONE DEL TUNNEL!";
+            }
+        } else {
+            stats.totalPoints -= pointsChange;
+            // Ripete il livello fallito (stats.level non cambia)
+        }
+
+        setTimeout(() => {
+            msg.opacity = 0;
+            if (stats.totalPoints <= 0) {
+                gameOver();
+            } else {
+                prepareNextMatch();
+            }
+        }, 2500);
+    }
+
+    function gameOver() {
+        const msg = document.getElementById('match-msg');
+        msg.innerText = "GAME OVER";
+        msg.style.color = "#ff0000";
+        msg.style.opacity = 1;
+        
+        stats.level = 1;
+        stats.totalPoints = 0;
         
         setTimeout(() => {
-            el.classList.remove('show');
-            updateUI();
-            if (stats.playerScore >= 5 || stats.cpuScore >= 5) checkMatch();
-            else resetBall();
-        }, 1500);
+            location.reload(); // Restart totale
+        }, 3000);
+    }
+
+    function prepareNextMatch() {
+        document.getElementById('match-msg').style.opacity = 0;
+        stats.playerScore = 0;
+        stats.cpuScore = 0;
+        updateUI();
+        resetToWait();
     }
 
     function updateUI() {
         document.getElementById('player-score').innerText = stats.playerScore;
         document.getElementById('cpu-score').innerText = stats.cpuScore;
-        document.getElementById('level-val').innerText = stats.level;
-        const cont = document.getElementById('lives-container');
-        cont.innerHTML = '';
-        for(let i=0; i<3; i++) {
-            const d = document.createElement('div');
-            d.className = `life-dot ${i < stats.lives ? 'life-active' : 'life-empty'}`;
-            cont.appendChild(d);
-        }
-        if(stats.totalPoints > highScore) {
-            highScore = stats.totalPoints;
-            localStorage.setItem('pong_high_score', highScore);
-            document.getElementById('record-val').innerText = highScore;
-        }
+        document.getElementById('level-val').innerText = `LEVEL ${stats.level < 10 ? '0'+stats.level : stats.level}`;
+        document.getElementById('score-total').innerText = String(Math.max(0, stats.totalPoints)).padStart(4, '0');
+        document.getElementById('speed-indicator').innerText = stats.currentSpeed.toFixed(1);
     }
 
-    function checkMatch() {
-        if (stats.playerScore >= 5) {
-            stats.level++; stats.playerScore = 0; stats.cpuScore = 0;
-            showMsg("LIVELLO VINTO", `Accesso autorizzato al settore ${stats.level}.`, "Continua");
-        } else {
-            stats.lives--; stats.playerScore = 0; stats.cpuScore = 0;
-            if (stats.lives <= 0) showMsg("SISTEMA OFFLINE", `Score finale: ${stats.totalPoints}`, "Ricomincia");
-            else showMsg("DATI CORROTTI", "L'avversario ha superato le difese.", "Riprova");
-        }
-    }
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
 
-    function showMsg(t, b, btn) {
-        gameState = 'MESSAGE';
-        document.getElementById('msg-screen').classList.remove('hidden');
-        document.getElementById('msg-title').innerText = t;
-        document.getElementById('msg-body').innerText = b;
-        document.getElementById('msg-btn').innerText = btn;
-    }
-
-    function resetBall() {
-        gameState = 'WAITING_FOR_LAUNCH';
-        document.getElementById('click-prompt').classList.remove('hidden');
-    }
-
-    function launchBall() {
-        playCyberSound('launch');
-        const speed = BALL_SPEED_START + (stats.level * 0.08);
-        ballVelocity.set((Math.random()-0.5)*0.02, (Math.random()-0.5)*0.02, -speed);
-        gameState = 'PLAYING';
-        document.getElementById('click-prompt').classList.add('hidden');
-    }
-
-    window.startGame = () => {
-        if (audioCtx.state === 'suspended') audioCtx.resume();
-        document.getElementById('start-screen').classList.add('hidden');
-        updateUI();
-    };
-
-    window.nextAction = () => {
-        document.getElementById('msg-screen').classList.add('hidden');
-        if (stats.lives <= 0) {
-            stats = { level: 1, lives: 3, playerScore: 0, cpuScore: 0, totalPoints: 0 };
-            updateUI();
-        }
-        resetBall();
-    };
-
-    window.onload = init;
+    window.onload = () => { initThree(); animate(); };
 </script>
 </body>
 </html>
