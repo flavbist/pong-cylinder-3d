@@ -1,558 +1,60 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="it">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Cyber Tunnel 3D - Music & GitHub Ready</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
-        
-        body { 
-            margin: 0; 
-            overflow: hidden; 
-            background: #000; 
-            font-family: 'Orbitron', sans-serif;
-            user-select: none;
-            touch-action: none;
-        }
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Pong Cylinder 3D - Pagina principale</title>
+  <style>
+    /* Assicura che l'altezza copra tutta la finestra */
+    html, body { height: 100%; margin: 0; }
 
-        #ui-layer { 
-            position: absolute; 
-            top: 0; left: 0; width: 100%; height: 100%; 
-            pointer-events: none; z-index: 10; color: #fff; 
-        }
+    /* Sfondo statico con cover */
+    body {
+      background-image: url('sfondo.webp');
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      background-attachment: fixed;
+      background-color: #000; /* fallback */
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+      color: #fff;
+    }
 
-        .hud { padding: 20px; display: flex; justify-content: space-between; pointer-events: auto; }
+    /* Contenitore per il contenuto centrale */
+    .container {
+      min-height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 2rem;
+      text-shadow: 0 2px 6px rgba(0,0,0,0.6);
+    }
 
-        .glass-panel {
-            background: rgba(0, 0, 0, 0.6);
-            backdrop-filter: blur(8px);
-            border: 1px solid rgba(0, 255, 255, 0.2);
-            border-radius: 4px;
-            padding: 12px 20px;
-        }
+    h1 { margin: 0 0 1rem 0; font-size: 2.2rem; }
+    p { margin: 0; opacity: 0.9; }
 
-        .btn-neon {
-            background: transparent;
-            color: #00ffff;
-            padding: 15px 40px;
-            border: 2px solid #00ffff;
-            cursor: pointer;
-            font-weight: 900;
-            text-transform: uppercase;
-            letter-spacing: 4px;
-            pointer-events: auto;
-            box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
-            transition: all 0.3s ease;
-        }
-        .btn-neon:hover {
-            background: #00ffff;
-            color: #000;
-            box-shadow: 0 0 40px #00ffff;
-        }
+    /* Per migliorare la leggibilità su sfondi molto chiari */
+    .card {
+      background: rgba(0,0,0,0.35);
+      padding: 1.2rem 1.6rem;
+      border-radius: 12px;
+      backdrop-filter: blur(6px);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.45);
+    }
 
-        .color-dot {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            cursor: pointer;
-            border: 3px solid transparent;
-            transition: all 0.2s;
-            pointer-events: auto;
-        }
-        .color-dot:hover { transform: scale(1.2); }
-        .color-dot.active { border-color: white; box-shadow: 0 0 15px currentColor; }
-
-        .menu-overlay {
-            position: absolute; inset: 0;
-            background: rgba(0,0,0,0.85);
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            z-index: 50; pointer-events: auto;
-        }
-
-        .hidden { display: none !important; }
-
-        #click-prompt {
-            position: absolute; bottom: 25%; left: 50%; transform: translateX(-50%);
-            color: #00ffff; font-weight: 900; letter-spacing: 8px; text-transform: uppercase;
-            animation: blink 0.8s infinite; pointer-events: none;
-            text-shadow: 0 0 10px #00ffff;
-        }
-
-        #match-msg {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            font-size: 3rem; font-weight: 900; text-align: center;
-            text-transform: uppercase; letter-spacing: 10px;
-            z-index: 60; pointer-events: none; opacity: 0; transition: opacity 0.5s;
-            text-shadow: 0 0 20px currentColor;
-        }
-
-        @keyframes blink { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
-    </style>
+    /* Responsive tweaks */
+    @media (min-width: 800px) {
+      h1 { font-size: 3rem; }
+    }
+  </style>
 </head>
 <body>
-
-<div id="game-overlay" style="position: absolute; inset: 0; z-index: 1;"></div>
-
-<div id="ui-layer">
-    <div class="hud">
-        <div class="glass-panel border-l-4 border-l-cyan-500 min-w-[150px]">
-            <div id="level-val" class="text-sm tracking-widest text-cyan-400">CORE LEVEL 01</div>
-            <div id="score-total" class="text-xl font-black text-white mt-1">0000</div>
-        </div>
-        <div class="flex items-center gap-10 glass-panel px-12">
-            <div class="text-center">
-                <div class="text-[10px] opacity-50 uppercase mb-1">Tu</div>
-                <div id="player-score" class="text-5xl font-black text-white leading-none">0</div>
-            </div>
-            <div class="h-10 w-[2px] bg-cyan-500/30"></div>
-            <div class="text-center">
-                <div class="text-[10px] opacity-50 uppercase mb-1">Cortex</div>
-                <div id="cpu-score" class="text-5xl font-black text-pink-500 leading-none">0</div>
-            </div>
-        </div>
-        <div class="glass-panel text-right border-r-4 border-r-pink-500 min-w-[100px]">
-            <div class="text-[10px] opacity-50 uppercase mb-1">Velocità</div>
-            <div id="speed-indicator" class="text-xl font-black text-pink-400 italic">0.0</div>
-        </div>
+  <div class="container">
+    <div class="card">
+      <h1>Pong Cylinder 3D</h1>
+      <p>La pagina principale ora usa <code>sfondo.webp</code> come sfondo statico. Assicurati che il file <code>sfondo.webp</code> sia nella stessa cartella di <code>index.html</code>.</p>
     </div>
-
-    <div id="match-msg">MATCH WIN!</div>
-
-    <div id="start-screen" class="menu-overlay">
-        <h1 class="text-6xl font-black italic text-center mb-8 tracking-tighter">
-            <span class="text-white">CYBER</span>
-            <span class="text-cyan-400">TUNNEL</span>
-        </h1>
-        
-        <div class="mb-12 text-center">
-            <p class="text-xs uppercase tracking-widest text-gray-400 mb-4">Personalizza Sistema</p>
-            <div class="flex gap-6 justify-center" id="color-selector">
-                <div class="color-dot active" style="background: #00ffff; color: #00ffff;" onclick="selectColor(this, 0x00ffff)"></div>
-                <div class="color-dot" style="background: #00ff00; color: #00ff00;" onclick="selectColor(this, 0x00ff00)"></div>
-                <div class="color-dot" style="background: #ffff00; color: #ffff00;" onclick="selectColor(this, 0xffff00)"></div>
-                <div class="color-dot" style="background: #ffaa00; color: #ffaa00;" onclick="selectColor(this, 0xffaa00)"></div>
-                <div class="color-dot" style="background: #ffffff; color: #ffffff;" onclick="selectColor(this, 0xffffff)"></div>
-            </div>
-        </div>
-
-        <button id="main-btn" class="btn-neon text-xl" onclick="initAndStart()">Avvia Sistema</button>
-        <p id="status-text" class="text-[10px] text-cyan-500/50 mt-6 tracking-widest uppercase italic">In attesa di GitHub Pages...</p>
-    </div>
-
-    <div id="click-prompt" class="hidden text-sm">Pronto al Lancio</div>
-</div>
-
-<script>
-    // --- CONFIGURAZIONE AUDIO ENGINE (GENERATIVO) ---
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    let nextNoteTime = 0;
-    const BPM = 128;
-    const beatDuration = 60 / BPM;
-    const sixteenth = beatDuration / 4; 
-    let step = 0;
-    let musicStartTime = 0;
-    let isMusicActive = false;
-
-    const bassPattern = [32.70, 0, 32.70, 32.70, 0, 0, 32.70, 0, 32.70, 0, 32.70, 32.70, 0, 32.70, 0, 0];
-    const glitchPattern = [1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 0, 0, 1, 0, 1, 1];
-
-    function playKick(time) {
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.frequency.setValueAtTime(150, time);
-        osc.frequency.exponentialRampToValueAtTime(0.01, time + 0.5);
-        gain.gain.setValueAtTime(0.6, time);
-        gain.gain.linearRampToValueAtTime(0, time + 0.5);
-        osc.connect(gain); gain.connect(audioCtx.destination);
-        osc.start(time); osc.stop(time + 0.5);
-    }
-
-    function playBass(time, freq) {
-        if (freq === 0) return;
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        const filter = audioCtx.createBiquadFilter();
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(freq, time);
-        filter.type = 'lowpass';
-        filter.frequency.setValueAtTime(200, time);
-        filter.frequency.exponentialRampToValueAtTime(800, time + 0.1);
-        gain.gain.setValueAtTime(0.2, time);
-        gain.gain.linearRampToValueAtTime(0, time + sixteenth * 2);
-        osc.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
-        osc.start(time); osc.stop(time + sixteenth * 2);
-    }
-
-    function playHat(time, open = false) {
-        const noise = audioCtx.createBufferSource();
-        const bufferSize = audioCtx.sampleRate * 0.1;
-        const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-        const data = buffer.getChannelData(0);
-        for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-        noise.buffer = buffer;
-        const filter = audioCtx.createBiquadFilter();
-        filter.type = 'highpass';
-        filter.frequency.value = 8000;
-        const gain = audioCtx.createGain();
-        gain.gain.setValueAtTime(open ? 0.1 : 0.05, time);
-        gain.gain.exponentialRampToValueAtTime(0.01, time + (open ? 0.3 : 0.05));
-        noise.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
-        noise.start(time); noise.stop(time + 0.5);
-    }
-
-    function playSnare(time) {
-        const noise = audioCtx.createBufferSource();
-        const bufferSize = audioCtx.sampleRate * 0.2;
-        const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-        const data = buffer.getChannelData(0);
-        for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-        noise.buffer = buffer;
-        const noiseFilter = audioCtx.createBiquadFilter();
-        noiseFilter.type = 'highpass';
-        noiseFilter.frequency.value = 1000;
-        const noiseGain = audioCtx.createGain();
-        noiseGain.gain.setValueAtTime(0.15, time);
-        noiseGain.gain.exponentialRampToValueAtTime(0.01, time + 0.2);
-        const osc = audioCtx.createOscillator();
-        osc.frequency.setValueAtTime(180, time);
-        const oscGain = audioCtx.createGain();
-        oscGain.gain.setValueAtTime(0.2, time);
-        oscGain.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
-        noise.connect(noiseFilter); noiseFilter.connect(noiseGain); noiseGain.connect(audioCtx.destination);
-        osc.connect(oscGain); oscGain.connect(audioCtx.destination);
-        noise.start(time); noise.stop(time + 0.2);
-        osc.start(time); osc.stop(time + 0.2);
-    }
-
-    function playFixedGlitch(time, index) {
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        gain.gain.setValueAtTime(0.04, time);
-        gain.gain.exponentialRampToValueAtTime(0.001, time + 0.1);
-        osc.type = (index % 2 === 0) ? 'square' : 'sine';
-        osc.frequency.setValueAtTime(800 + (index * 200), time);
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.start(time); osc.stop(time + 0.1);
-    }
-
-    // Suoni degli effetti di gioco (separati dalla musica)
-    function playGameSFX(freq, type, decay) {
-        if (audioCtx.state === 'suspended') return;
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = type;
-        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + decay);
-        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-        gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + decay);
-        osc.connect(gain); gain.connect(audioCtx.destination);
-        osc.start(); osc.stop(audioCtx.currentTime + decay);
-    }
-
-    function audioScheduler() {
-        if (!isMusicActive) return;
-        while (nextNoteTime < audioCtx.currentTime + 0.1) {
-            const timeElapsed = audioCtx.currentTime - musicStartTime;
-            const currentStep = step % 16;
-            playBass(nextNoteTime, bassPattern[currentStep]);
-            if (timeElapsed > 5 && currentStep % 4 === 0) playKick(nextNoteTime);
-            if (timeElapsed > 15 && currentStep % 4 === 2) playHat(nextNoteTime, false);
-            if (timeElapsed > 25) {
-                if (currentStep === 4 || currentStep === 12) playSnare(nextNoteTime);
-                if (currentStep === 14) playHat(nextNoteTime, true);
-                if (glitchPattern[currentStep] === 1) playFixedGlitch(nextNoteTime, currentStep);
-            }
-            nextNoteTime += sixteenth;
-            step++;
-        }
-    }
-
-    // --- GLOBALI THREE.JS ---
-    let scene, camera, renderer, ball, ballLight, playerPaddle, cpuPaddle, arenaGroup;
-    let ballVelocity = new THREE.Vector3();
-    let gameState = 'START'; 
-    let stats = { level: 1, playerScore: 0, cpuScore: 0, totalPoints: 0, currentSpeed: 0 };
-    let smokeParticles = [], trailParticles = [], tunnelRings = [];
-    let playerColor = 0x00ffff;
-    const WINNING_SCORE = 6;
-    let pointerInput = { x: 0, y: 0 };
-    const RADIUS = 10, BALL_RADIUS = 0.8, ARENA_DEPTH = 100; 
-    const PADDLE_RADIUS = 4.2, PADDLE_THICKNESS = 0.12; 
-    let targetSpeed = 1.4, introProgress = 0;
-    const SPEED_INCREMENT = 0.12, MAX_SPEED_CAP = 5.0; 
-
-    function selectColor(el, color) {
-        document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('active'));
-        el.classList.add('active');
-        playerColor = color;
-        const hex = '#' + color.toString(16).padStart(6, '0');
-        document.querySelector('.btn-neon').style.color = hex;
-        document.querySelector('.btn-neon').style.borderColor = hex;
-    }
-
-    function initThree() {
-        scene = new THREE.Scene();
-        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 5000);
-        camera.position.set(0, 5, 200);
-
-        renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(window.devicePixelRatio);
-        document.body.appendChild(renderer.domElement);
-
-        const ambLight = new THREE.AmbientLight(0xffffff, 0.6);
-        scene.add(ambLight);
-
-        const loader = new THREE.TextureLoader();
-        const statusEl = document.getElementById('status-text');
-        loader.load('./sfondo.webp', 
-            (texture) => {
-                scene.background = texture;
-                statusEl.innerText = "Sincronizzazione GitHub Completata";
-                statusEl.classList.replace('text-cyan-500/50', 'text-green-400');
-            }, 
-            undefined, 
-            () => {
-                statusEl.innerText = "Modalità Offline (Carica su GitHub per lo sfondo)";
-                scene.background = new THREE.Color(0x020205);
-            }
-        );
-
-        arenaGroup = new THREE.Group();
-        scene.add(arenaGroup);
-
-        const ringGeo = new THREE.TorusGeometry(RADIUS, 0.05, 12, 64);
-        for (let i = 0; i < 12; i++) {
-            const ringMat = new THREE.MeshStandardMaterial({ 
-                color: playerColor, emissive: playerColor, emissiveIntensity: 1,
-                transparent: true, opacity: 0.4
-            });
-            const ring = new THREE.Mesh(ringGeo, ringMat);
-            ring.position.z = (i / 11 - 0.5) * ARENA_DEPTH;
-            arenaGroup.add(ring);
-            tunnelRings.push(ring);
-        }
-
-        ball = new THREE.Group();
-        const ballMesh = new THREE.Mesh(new THREE.SphereGeometry(BALL_RADIUS, 32, 32), new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 2 }));
-        ball.add(ballMesh);
-        ballLight = new THREE.PointLight(0x00ffff, 10, 40);
-        ball.add(ballLight);
-        scene.add(ball);
-
-        playerPaddle = createPaddle(playerColor, ARENA_DEPTH/2 - 5);
-        cpuPaddle = createPaddle(0xff00ff, -ARENA_DEPTH/2 + 5);
-        scene.add(playerPaddle); scene.add(cpuPaddle);
-
-        setupInput();
-    }
-
-    function createPaddle(color, z) {
-        const g = new THREE.Group();
-        const main = new THREE.Mesh(new THREE.TorusGeometry(PADDLE_RADIUS, PADDLE_THICKNESS, 16, 64), new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 2 }));
-        const glow = new THREE.Mesh(new THREE.CircleGeometry(PADDLE_RADIUS, 32), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.15, side: THREE.DoubleSide }));
-        g.add(main); g.add(glow);
-        g.position.z = z;
-        return g;
-    }
-
-    function createSmokeEffect(pos, color = 0x888888) {
-        for(let i = 0; i < 6; i++) {
-            const size = Math.random() * 0.3 + 0.1;
-            const p = new THREE.Mesh(new THREE.SphereGeometry(size, 8, 8), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.7 }));
-            p.position.copy(pos);
-            p.userData = { velocity: new THREE.Vector3((Math.random()-0.5)*0.2, (Math.random()-0.5)*0.2, (Math.random()-0.5)*0.2), life: 1.0, decay: 0.03 };
-            scene.add(p);
-            smokeParticles.push(p);
-        }
-    }
-
-    function createTrailEffect() {
-        const p = new THREE.Mesh(new THREE.SphereGeometry(BALL_RADIUS * 0.7, 8, 8), new THREE.MeshBasicMaterial({ color: ballVelocity.z > 0 ? playerColor : 0xff00ff, transparent: true, opacity: 0.4 }));
-        p.position.copy(ball.position);
-        p.userData = { life: 1.0, decay: 0.1 };
-        scene.add(p);
-        trailParticles.push(p);
-    }
-
-    function updateParticles() {
-        for (let i = smokeParticles.length - 1; i >= 0; i--) {
-            const p = smokeParticles[i];
-            p.position.add(p.userData.velocity);
-            p.userData.life -= p.userData.decay;
-            p.material.opacity = p.userData.life;
-            if (p.userData.life <= 0) { scene.remove(p); smokeParticles.splice(i, 1); }
-        }
-        for (let i = trailParticles.length - 1; i >= 0; i--) {
-            const p = trailParticles[i];
-            p.userData.life -= p.userData.decay;
-            p.scale.multiplyScalar(0.92);
-            if (p.userData.life <= 0) { scene.remove(p); trailParticles.splice(i, 1); }
-        }
-    }
-
-    function setupInput() {
-        const overlay = document.getElementById('game-overlay');
-        const handleInput = (ex, ey) => {
-            pointerInput.x = (ex / window.innerWidth) * 2 - 1;
-            pointerInput.y = -(ey / window.innerHeight) * 2 + 1;
-        };
-        overlay.addEventListener('mousemove', (e) => handleInput(e.clientX, e.clientY));
-        overlay.addEventListener('touchmove', (e) => {
-            handleInput(e.touches[0].clientX, e.touches[0].clientY);
-            e.preventDefault();
-        }, { passive: false });
-        overlay.addEventListener('click', () => { if (gameState === 'WAITING') launchBall(); });
-    }
-
-    function animate() {
-        requestAnimationFrame(animate);
-        audioScheduler(); // Gestione musica
-        updateParticles();
-
-        if (gameState === 'INTRO') {
-            introProgress += 0.01;
-            camera.position.z = 200 * (1 - introProgress) + (ARENA_DEPTH/2 + 15) * introProgress;
-            camera.lookAt(0,0,0);
-            if (introProgress >= 1) {
-                gameState = 'WAITING';
-                document.getElementById('click-prompt').classList.remove('hidden');
-            }
-        }
-
-        if (gameState === 'WAITING' || gameState === 'PLAYING') {
-            const limit = RADIUS - PADDLE_RADIUS - 0.5;
-            playerPaddle.position.x = THREE.MathUtils.lerp(playerPaddle.position.x, pointerInput.x * limit * 1.5, 0.15); 
-            playerPaddle.position.y = THREE.MathUtils.lerp(playerPaddle.position.y, pointerInput.y * limit * 1.5, 0.15);
-            playerPaddle.rotation.z += 0.02;
-
-            camera.position.lerp(new THREE.Vector3(playerPaddle.position.x*0.3, playerPaddle.position.y*0.3 + 2, ARENA_DEPTH/2 + 20), 0.05);
-            camera.lookAt(ball.position.x*0.2, ball.position.y*0.2, ball.position.z*0.5);
-        }
-
-        if (gameState === 'WAITING') {
-            ball.position.set(playerPaddle.position.x, playerPaddle.position.y, playerPaddle.position.z - 2);
-        }
-
-        if (gameState === 'PLAYING') {
-            ball.position.add(ballVelocity);
-            createTrailEffect();
-
-            const ballDist = Math.sqrt(ball.position.x**2 + ball.position.y**2);
-            if (ballDist > RADIUS - BALL_RADIUS) {
-                const normal = new THREE.Vector3(ball.position.x, ball.position.y, 0).normalize();
-                ballVelocity.reflect(normal);
-                createSmokeEffect(ball.position.clone(), 0xffffff);
-                playGameSFX(200, 'sine', 0.1);
-            }
-
-            cpuPaddle.position.x += (ball.position.x - cpuPaddle.position.x) * (0.04 + stats.level * 0.012);
-            cpuPaddle.position.y += (ball.position.y - cpuPaddle.position.y) * (0.04 + stats.level * 0.012);
-            
-            const collDist = PADDLE_RADIUS + BALL_RADIUS;
-            if (ballVelocity.z > 0 && ball.position.z > playerPaddle.position.z - 1) {
-                if (Math.sqrt((ball.position.x - playerPaddle.position.x)**2 + (ball.position.y - playerPaddle.position.y)**2) < collDist) {
-                    ballVelocity.z *= -1;
-                    ballVelocity.x += (ball.position.x - playerPaddle.position.x) * 0.2;
-                    ballVelocity.y += (ball.position.y - playerPaddle.position.y) * 0.2;
-                    targetSpeed = Math.min(targetSpeed + SPEED_INCREMENT, MAX_SPEED_CAP);
-                    ballVelocity.setLength(targetSpeed);
-                    playGameSFX(440, 'square', 0.1);
-                }
-            }
-            if (ballVelocity.z < 0 && ball.position.z < cpuPaddle.position.z + 1) {
-                if (Math.sqrt((ball.position.x - cpuPaddle.position.x)**2 + (ball.position.y - cpuPaddle.position.y)**2) < collDist) {
-                    ballVelocity.z *= -1;
-                    targetSpeed = Math.min(targetSpeed + SPEED_INCREMENT, MAX_SPEED_CAP);
-                    ballVelocity.setLength(targetSpeed);
-                    playGameSFX(330, 'square', 0.1);
-                }
-            }
-
-            if (ball.position.z > ARENA_DEPTH/2 + 5) handleGoal(false);
-            if (ball.position.z < -ARENA_DEPTH/2 - 5) handleGoal(true);
-            
-            stats.currentSpeed = ballVelocity.length();
-            updateUI();
-        }
-
-        renderer.render(scene, camera);
-    }
-
-    async function initAndStart() {
-        if (audioCtx.state === 'suspended') await audioCtx.resume();
-        
-        // Avvia Musica
-        isMusicActive = true;
-        musicStartTime = audioCtx.currentTime;
-        nextNoteTime = audioCtx.currentTime;
-        step = 0;
-
-        playerPaddle.children[0].material.color.setHex(playerColor);
-        playerPaddle.children[0].material.emissive.setHex(playerColor);
-        ballLight.color.setHex(playerColor);
-        tunnelRings.forEach(r => { r.material.color.setHex(playerColor); r.material.emissive.setHex(playerColor); });
-
-        document.getElementById('start-screen').classList.add('hidden');
-        gameState = 'INTRO';
-    }
-
-    function launchBall() {
-        document.getElementById('click-prompt').classList.add('hidden');
-        gameState = 'PLAYING';
-        ballVelocity.set((Math.random()-0.5), (Math.random()-0.5), -targetSpeed);
-    }
-
-    function handleGoal(isP) {
-        if (isP) { stats.playerScore++; playGameSFX(600, 'sine', 0.3); }
-        else { stats.cpuScore++; playGameSFX(100, 'sawtooth', 0.4); }
-        
-        updateUI();
-        if (stats.playerScore >= WINNING_SCORE || stats.cpuScore >= WINNING_SCORE) {
-            endMatch();
-        } else {
-            gameState = 'WAITING';
-            targetSpeed = 1.4 + (stats.level * 0.2);
-            document.getElementById('click-prompt').classList.remove('hidden');
-        }
-    }
-
-    function endMatch() {
-        const win = stats.playerScore >= WINNING_SCORE;
-        const msg = document.getElementById('match-msg');
-        msg.innerText = win ? "LEVEL CLEAR" : "SYSTEM FAILURE";
-        msg.style.color = win ? "#00ffff" : "#ff0000";
-        msg.style.opacity = 1;
-        
-        setTimeout(() => {
-            msg.style.opacity = 0;
-            if (win) { stats.level++; stats.totalPoints += 500; }
-            else { stats.totalPoints = Math.max(0, stats.totalPoints - 200); }
-            stats.playerScore = 0; stats.cpuScore = 0;
-            updateUI();
-            gameState = 'WAITING';
-            document.getElementById('click-prompt').classList.remove('hidden');
-        }, 2000);
-    }
-
-    function updateUI() {
-        document.getElementById('player-score').innerText = stats.playerScore;
-        document.getElementById('cpu-score').innerText = stats.cpuScore;
-        document.getElementById('level-val').innerText = `LEVEL ${stats.level.toString().padStart(2, '0')}`;
-        document.getElementById('score-total').innerText = stats.totalPoints.toString().padStart(4, '0');
-        document.getElementById('speed-indicator').innerText = stats.currentSpeed.toFixed(1);
-    }
-
-    window.addEventListener('resize', () => {
-        camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-    });
-
-    window.onload = () => { initThree(); animate(); };
-</script>
+  </div>
 </body>
 </html>
